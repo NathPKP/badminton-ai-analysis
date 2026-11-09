@@ -140,4 +140,4 @@ analyses/              your analyses (git-ignored: personal videos and results)
 
 ## Licence
 
-MIT; see [LICENSE](LICENSE), which also reproduces the original guide's notice.
+MIT; see [LICENSE](LICENSE). The original guide's notice is in [NOTICE](NOTICE).
