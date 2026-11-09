@@ -15,7 +15,8 @@ asked to do here. Read `README.md` for the overview and `docs/PIPELINE.md` for e
 
 Goal: `analyses/<id>/review.json` (format: `examples/review.example.json`), the truth for serves and rally ends.
 
-1. Start from `review.todo.json` (serves detected automatically: times within about 2 s, server guessed) and
+1. Start from `review.todo.json` (serves detected automatically: times within about 2 s, or 0.7 s when the note
+   says they come from the shuttle's flight; server guessed: the shuttle does not tell it on floor footage) and
    the sheets `contact/timeline/*.jpg`: one tile every 0.5 s, each labelled with its time, with a zoom on the
    far player. `R` = the near player (back to the camera, the user), `O` = the far player.
 2. For every serve: `t` = racket contact, `server`. For every rally: `t` = last moment of live play (last hit,

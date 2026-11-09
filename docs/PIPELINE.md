@@ -118,6 +118,34 @@ Movement per rally and per player across analyses, computed exactly as stage 7 d
 | Distance per 10 s of play | 13.6 m | 10.2 m |
 | Distance to the base 1 s after a trip | 1.2 m | 1.4 m |
 
+### 13. Shuttle tracking: `s13_shuttle.py` (optional)
+[TrackNetV3](https://github.com/qaz812345/TrackNetV3) (MIT, weights included) finds the shuttle in every frame.
+- **Install**: `download_models.py --shuttle` downloads the published PyTorch checkpoints (130 MB, checksum verified) and converts them once to ONNX (`models/tracknet.onnx`, `models/inpaintnet.onnx`). The conversion needs PyTorch and onnx, and checks that the ONNX output matches PyTorch. Analysing a video then needs only onnxruntime. `run.py` runs the stage when these two files exist, unless `shuttle=off`.
+- **Method**, as in the original `predict.py`:
+  - frames resized to 512×288, 8 at a time, after a median background image of the video;
+  - the shuttle is the centre of the largest heatmap blob above 0.5;
+  - InpaintNet fills short gaps inside a flight. Unlike the original, gaps longer than its 16-frame window stay empty, because over a close-up it invented a whole trajectory.
+  - Windows don't overlap: the original's overlapping "weight" mode costs 8 times more for little gain.
+- **Speed** on a 13th-gen i5 CPU: about 0.06 s per frame, so 5 min for the 157 s test clip and 15–17 min for 8 minutes of TV footage.
+- **Flights** (`bball/shuttle.py`):
+  - Detections that come back to the same spot at several moments are dropped first: on the test clip, 30 % of them were white holds of a climbing wall behind the court.
+  - The rest is grouped into moving runs, the `flights` of `shuttle.json`.
+- **Serve times.** Stage 4a moves each automatic serve to the start of the serve flight: a flight starting within 2.5 s of it, after at least 1.5 s without any flight. This rules out the shuttle being hit back to the server between rallies. Two candidates landing on the same flight are one serve, so only the closer one is kept.
+  - On the test clip: all 12 serves found, with 1 false candidate (2 before).
+  - The time error went from a median of 0.7 s (largest 2.3 s) to a median of 0.2 s (largest 0.7 s).
+  - The 0.1 s close-ups used to read the server are cut around these times.
+
+| Measured | BWF TV footage | Test clip (floor camera) |
+|---|---|---|
+| Shuttle found, frames during rallies | 81–88 % | 35 % |
+| Shuttle found, frames between rallies | 8 % | 18 % (shuttle in hand or on the floor, climbing holds) |
+| Detections on the shuttle (16 random crops of flight points) | 15 / 16 | 12 / 16 (the other 4 look like round white holds) |
+
+- **What it does not solve yet on floor footage:**
+  - **Who serves.** The first point of the serve flight is near the far player when they serve low. After a high serve the shuttle is first seen already high, where the near player's large box also covers it. Result: 7 of 12.
+  - **Rally ends.** The shuttle hit back to the server right after a point looks like play, which would push some rally ends 0.5–2 s late.
+  - On TV footage both should work far better. That is the next thing to measure, once the pro analyses have a `review.json` to compare against.
+
 ## `run.py`: orchestration
 
 - **One folder per analysis**: `analyses/<video date>_<name>/` with `analysis.json` (source video and settings) and `.pipeline.json` (state).
@@ -134,8 +162,8 @@ Movement per rally and per player across analyses, computed exactly as stage 7 d
 - **The service-court rule does not identify the server on its own.** With the 12 sides measured correctly, 128 of the 4,096 possible server sequences still obey the rule.
   - With the rule, the "who moves first" guess and the side where the shuttle was picked up, the most likely sequence had 10 servers right out of 12, but the true one ranked only 29th.
   - When the draft is written, the shuttle side isn't known yet. With only the rule and the guess, the result drops to 7 out of 12, worse than the guess alone (8 out of 12).
-  - So stage 5 uses the rule as a check, not as a solver. Reliable automation needs the shuttle itself (a shuttle tracker).
-- **Player speed does not find amateur rallies.** On the test clip, the faster of the two players moves at a median 1.0 m/s during rallies and 0.7 m/s between them, and the two ranges overlap widely: players walk to pick up the shuttle about as fast as they play. Rally ends are therefore read by eye, or will come from a shuttle tracker.
+  - So stage 5 uses the rule as a check, not as a solver. The shuttle tracker (stage 13) times the serves precisely, but on this footage it does not tell the server either (7 out of 12).
+- **Player speed does not find amateur rallies.** On the test clip, the faster of the two players moves at a median 1.0 m/s during rallies and 0.7 m/s between them, and the two ranges overlap widely: players walk to pick up the shuttle about as fast as they play. Rally ends are therefore read by eye. The shuttle tracker sees play well, but it also sees the shuttle being hit back to the server after a point.
 - **Perspective fools the eye on depth**: twice, a shuttle looked deep when it was short. Measure it with the calibration (`mark_px`, then H⁻¹) instead of judging by eye.
 - **Opponent depth**: a horizon-based correction of the calibration made the far depth worse, and it was removed. Only clicked points spread in depth across the far half, such as the far long-service line and the far corners, can fix it.
 - **Coaching claims** must survive an adversarial check. The first draft overstated three claims: rally durations inflated by padding, statistics computed on too few frames, and freeze frames that did not show the fault described.

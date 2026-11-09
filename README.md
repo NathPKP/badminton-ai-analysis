@@ -47,7 +47,18 @@ py -3.12 -m venv .venv
 | `yolox_s.onnx` | stage 1 | [Megvii YOLOX](https://github.com/Megvii-BaseDetection/YOLOX) | Apache-2.0 |
 | `pose_landmarker_heavy.task` | stage 8 | [Google MediaPipe](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker) | Apache-2.0 |
 | `kokoro-v1.0.onnx`, `voices-v1.0.bin` | stage 11 | [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) via [kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx) | Apache-2.0 |
+| `tracknet.onnx`, `inpaintnet.onnx` (optional) | stage 13 | [TrackNetV3](https://github.com/qaz812345/TrackNetV3), converted from its checkpoints | MIT (weights included) |
 </details>
+
+**Shuttle tracker (optional).** TrackNetV3 finds the shuttle in every frame; the pipeline then times the serves from the shuttle's flight. Its checkpoints are published for PyTorch, so they are converted to ONNX once:
+
+```
+.venv\Scripts\python.exe -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+.venv\Scripts\python.exe -m pip install onnx
+.venv\Scripts\python.exe download_models.py --shuttle
+```
+
+PyTorch is only needed for this conversion (it can be uninstalled afterwards). Tracking takes about 0.06 s per frame on a recent CPU: 5 minutes for a 2.5-minute clip.
 
 It was developed on Windows 11; the tests also run on Linux. On Linux and macOS, use `.venv/bin/python` wherever this README says `.venv\Scripts\python.exe`.
 
@@ -111,6 +122,7 @@ Other commands:
 | `last_winner` | `R` (you) or `O`, if the video shows who won the last point |
 | `accept_score` | serves that break the side rule but are right (fault, let), e.g. `[7]` |
 | `speed` | rally playback speed in the reel (1.3) |
+| `shuttle` | `on` (default, when the tracker is installed) or `off` |
 | `report_date` | date printed on the PDF |
 
 ## With an AI assistant
@@ -139,6 +151,7 @@ Any assistant that can read images and files can follow the same instructions.
 | 10 | `s10_report.py`, `s10_coach.py`, `s10_pdf.py` | numbers split by points won and lost; lessons; PDF report |
 | 11 | `s11_video.py` | vertical reel with overlays and voice-over |
 | 12 | `s12_benchmark.py` | movement per rally compared across analyses, e.g. with professional players |
+| 13 | `s13_shuttle.py` | optional: shuttle position in every frame (TrackNetV3), used to time the serves; runs right after stage 3 |
 
 The PDF compares your movement with professional singles players. The reference numbers are measured by the same code on two BWF finals filmed for TV and stored in [benchmarks/pro_singles.json](benchmarks/pro_singles.json). For example, a median rally lasts 8.8 s for the pros, and they move at 1.33 m/s on average.
 
@@ -183,9 +196,9 @@ analyses/              your analyses (git-ignored: personal videos and results)
 ## Credits
 
 - Pipeline design: [KiranYelisetti/badminton-ai-analysis](https://github.com/KiranYelisetti/badminton-ai-analysis) (MIT). This repository follows its stages, file formats and most of its thresholds. Where it departs from them (for example the stage 9 threshold or the calibration points used), the reason is given in [docs/PIPELINE.md](docs/PIPELINE.md).
-- Models: YOLOX (Megvii), MediaPipe Pose Landmarker (Google), Kokoro-82M (hexgrad) via kokoro-onnx.
+- Models: YOLOX (Megvii), MediaPipe Pose Landmarker (Google), Kokoro-82M (hexgrad) via kokoro-onnx, TrackNetV3 (qaz812345, MIT; notice in [NOTICE](NOTICE)).
 - Implementation written with [Claude Code](https://claude.com/claude-code).
 
 ## Licence
 
-MIT; see [LICENSE](LICENSE). The original guide's notice is in [NOTICE](NOTICE).
+MIT; see [LICENSE](LICENSE). The notices of the original guide and of TrackNetV3 are in [NOTICE](NOTICE).

@@ -48,7 +48,8 @@ CAMERA = {"floor": "sol", "raised": "haute", "sol": "sol", "haute": "haute"}
 MSG = {
     "en": {
         "stages": {"proxy": "0. working copy at 30 fps", "detect": "1. player detection", "calib": "2. court calibration",
-                   "players": "3. player positions", "sheets": "4a. reading sheets + detected serves",
+                   "players": "3. player positions", "shuttle": "13. shuttle tracking (TrackNetV3)",
+                   "sheets": "4a. reading sheets + detected serves",
                    "review": "reading serves and rally ends", "serves": "4. serves",
                    "score": "5. score + service-side check", "rallies": "6. rally ends", "movement": "7. movement",
                    "pose": "8. posture", "pickups": "9. side where the shuttle lands", "report": "10. report numbers",
@@ -119,17 +120,19 @@ MSG = {
                    "report_date": "date printed on the PDF report (default: the day the analysis was created)",
                    "camera": "floor (phone on the floor) or raised (camera 2 m or higher)",
                    "footage": "own (your video, you in the near half) or tv (broadcast: cuts, players change ends)",
+                   "shuttle": "on (default, when the tracker is installed: download_models.py --shuttle) or off",
                    "calib_from": "analysis whose calibration points are reused",
                    "accept_score": "serves that break the side rule but are right (fault, let...), e.g. [7]"},
         "bad_value": {"shorts_hue": "shorts_hue: two numbers, e.g. shorts_hue=[170,10]",
                       "accept_score": "accept_score: the list of accepted serve numbers, e.g. accept_score=[7]",
                       "number": "{k}: a number, e.g. {k}=12", "last_winner": "last_winner: R (you) or O (opponent)",
                       "camera": "camera: floor or raised", "lang": "lang: en or fr", "coach": "coach: auto or ai",
-                      "footage": "footage: own or tv"},
+                      "footage": "footage: own or tv", "shuttle": "shuttle: on or off"},
     },
     "fr": {
         "stages": {"proxy": "0. copie de travail 30 i/s", "detect": "1. détection des joueurs", "calib": "2. calibrage du terrain",
-                   "players": "3. positions des joueurs", "sheets": "4a. planches de lecture + services détectés",
+                   "players": "3. positions des joueurs", "shuttle": "13. suivi du volant (TrackNetV3)",
+                   "sheets": "4a. planches de lecture + services détectés",
                    "review": "lecture des services et fins d'échange", "serves": "4. services",
                    "score": "5. score + contrôle du côté de service", "rallies": "6. fins d'échange",
                    "movement": "7. déplacements", "pose": "8. posture", "pickups": "9. côté où tombe le volant",
@@ -200,13 +203,14 @@ MSG = {
                    "report_date": "date écrite sur le rapport PDF (par défaut : le jour de création de l'analyse)",
                    "camera": "floor (téléphone posé au sol) ou raised (caméra à 2 m ou plus)",
                    "footage": "own (ta vidéo, toi dans la moitié proche) ou tv (retransmission : coupures, changements de côté)",
+                   "shuttle": "on (par défaut, si le suivi est installé : download_models.py --shuttle) ou off",
                    "calib_from": "analyse dont on reprend les points de calibrage",
                    "accept_score": "services qui contredisent la règle du côté mais sont justes (faute, let...), ex. [7]"},
         "bad_value": {"shorts_hue": "shorts_hue : deux nombres, ex. shorts_hue=[170,10]",
                       "accept_score": "accept_score : la liste des numéros de service acceptés, ex. accept_score=[7]",
                       "number": "{k} : un nombre, ex. {k}=12", "last_winner": "last_winner : R (toi) ou O (adversaire)",
                       "camera": "camera : floor ou raised", "lang": "lang : en ou fr", "coach": "coach : auto ou ai",
-                      "footage": "footage : own ou tv"},
+                      "footage": "footage : own ou tv", "shuttle": "shuttle : on ou off"},
     },
 }
 
@@ -336,6 +340,7 @@ def stages(a):
     hue = ["--shorts-hue", *p["shorts_hue"]] if "shorts_hue" in p else []
     min_blue = ["--min-blue", p["min_blue"]] if "min_blue" in p else []
     tv = ["--near-any", "--check-view"] if p.get("footage") == "tv" else []
+    shuttle = shuttle_on(a)
     thr = ["--thr", p["thr"]] if "thr" in p else []
     last = ["--last-winner", p["last_winner"]] if p.get("last_winner") else []
     speed = ["--speed", p["speed"]] if "speed" in p else []
@@ -352,10 +357,15 @@ def stages(a):
               start and [script("s3_players.py", f("proxy.mp4"), f("dets.json"), f("calib.json"), f("players.json"),
                                 *start, *hue, *min_blue, *tv, "--sheet", f("contact/s3_players.jpg"),
                                 "--plot", f("figures/s3_tracks.png"))]),
-        Stage("sheets", ["serves_auto.json"], ["players.json"],
+        *([Stage("shuttle", ["shuttle.json"], ["proxy.mp4"],
+                 start and [script("s13_shuttle.py", f("proxy.mp4"), MODELS / "tracknet.onnx", f("shuttle.json"),
+                                   "--inpaint", MODELS / "inpaintnet.onnx", "--t0", p["start"],
+                                   "--sheet", f("contact/s13_shuttle.jpg"))])] if shuttle else []),
+        Stage("sheets", ["serves_auto.json"], ["players.json"] + (["shuttle.json"] if shuttle else []),
               start and [script("timeline_sheets.py", f("proxy.mp4"), f("players.json"), f("contact/timeline"), *start),
                          script("s4_serves.py", f("proxy.mp4"), f("players.json"), f("serves_auto.json"),
-                                "--sheets", f("contact/serves_auto"))]),
+                                "--sheets", f("contact/serves_auto"),
+                                *(["--shuttle", f("shuttle.json")] if shuttle else []))]),
         Stage("review", ["review.json"], [], manual=True),
         Stage("serves", ["serves.json"], ["players.json", "review.json"],
               [script("s4_serves.py", f("proxy.mp4"), f("players.json"), f("serves.json"), "--review", f("review.json"),
@@ -386,7 +396,13 @@ def stages(a):
     ]
 
 
-STAGE_KEYS = ["proxy", "detect", "calib", "players", "sheets", "review", "serves", "score", "rallies", "movement",
+def shuttle_on(a):
+    """Stage 13 runs when the tracker is installed (download_models.py --shuttle), unless shuttle=off."""
+    return a.params.get("shuttle", "on") != "off" and all((MODELS / n).exists()
+                                                          for n in ("tracknet.onnx", "inpaintnet.onnx"))
+
+
+STAGE_KEYS = ["proxy", "detect", "calib", "players", "shuttle", "sheets", "review", "serves", "score", "rallies", "movement",
               "pose", "pickups", "report", "coaching", "pdf", "video"]
 REDO_KEYS = [k for k in STAGE_KEYS if k not in ("review", "coaching")]
 
@@ -503,10 +519,12 @@ def review_todo(a):
     auto = load(a.dir / "serves_auto.json")["serves"]
     dump({"about": "DRAFT: correct it, then rename it review.json (format: examples/review.example.json). serves: "
                    "contact time + server (R = you, O = opponent), detected automatically (time within about 2 s, "
-                   "server guessed). rally_ends: last moment of live play of each rally + side where the shuttle came "
+                   "or 0.7 s when taken from the shuttle's flight; server guessed). rally_ends: last moment of live play of each rally + side where the shuttle came "
                    "down (R / O / null). Read on contact/timeline; confirm the server on contact/serve_closeups "
                    "(made at stage 4).",
-          "serves": [{"t": s["t"], "server": s["server_guess"], "note": "auto, to check"} for s in auto],
+          "serves": [{"t": s["t"], "server": s["server_guess"],
+                      "note": "auto, to check" + (" (time from the shuttle's flight)" if s.get("timed_by") == "shuttle"
+                                                  else "")} for s in auto],
           "rally_ends": []}, todo)
     a.state["todo_sha"] = sha(todo)
     return todo
@@ -642,6 +660,8 @@ def parse_value(k, v, lang):
         raise SystemExit(bad["coach"])
     if k == "footage" and x not in ("own", "tv"):
         raise SystemExit(bad["footage"])
+    if k == "shuttle" and x not in ("on", "off"):
+        raise SystemExit(bad["shuttle"])
     if k == "calib_from":
         return resolve(str(x), lang).name
     return x
@@ -717,12 +737,15 @@ def doctor():
         path = shutil.which(exe)
         line(path, f"{exe}: {path or 'not found'}",
              "install ffmpeg and put it on the PATH (Windows: winget install Gyan.FFmpeg, then open a new terminal)")
-    for name, size, optional in (("yolox_s.onnx", 30e6, False), ("pose_landmarker_heavy.task", 25e6, False),
-                                 ("kokoro-v1.0.onnx", 300e6, True), ("voices-v1.0.bin", 25e6, True)):
+    reel = ("(optional, for the video reel) ", "python download_models.py")
+    tracker = ("(optional, shuttle tracker) ", "python download_models.py --shuttle")
+    for name, size, optional in (("yolox_s.onnx", 30e6, None), ("pose_landmarker_heavy.task", 25e6, None),
+                                 ("kokoro-v1.0.onnx", 300e6, reel), ("voices-v1.0.bin", 25e6, reel),
+                                 ("tracknet.onnx", 40e6, tracker), ("inpaintnet.onnx", 1e6, tracker)):
         f = MODELS / name
         good = f.exists() and f.stat().st_size >= size
         line(good, f"models/{name}" + (f" ({f.stat().st_size / 1e6:.0f} MB)" if f.exists() else ""),
-             ("(optional, for the video reel) " if optional else "") + "python download_models.py")
+             "".join(optional) if optional else "python download_models.py")
     try:
         from bball.fonts import font
         fonts = [font(s) for s in ("regular", "bold", "italic", "display")]

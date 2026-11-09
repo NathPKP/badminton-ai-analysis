@@ -119,6 +119,24 @@ class Benchmark(unittest.TestCase):
         self.assertFalse(cut0 or cut1)
 
 
+class Shuttle(unittest.TestCase):
+    def test_blob_and_gaps(self):
+        import numpy as np
+
+        import s13_shuttle as s
+        heat = np.zeros((288, 512), np.float32)
+        self.assertIsNone(s.blob_centre(heat))
+        heat[10:13, 20:23] = 0.9                       # small blob
+        heat[100:110, 200:210] = 0.8                   # largest blob wins
+        self.assertEqual(s.blob_centre(heat), (205, 105))
+        seen = [True, True, False, False, True, False, True]
+        ys = [100] * 7
+        self.assertEqual(s.inpaint_mask(ys, seen, 14).tolist(), [0, 0, 1, 1, 0, 1, 0])
+        long_gap = [True, True] + [False] * 20 + [True]
+        self.assertFalse(s.inpaint_mask([100] * 23, long_gap, 14).any())   # too long: left empty
+        self.assertFalse(s.inpaint_mask([5] * 7, seen, 14).any())          # near the top edge: left empty
+
+
 class Settings(unittest.TestCase):
     def test_parse_and_num(self):
         import run as runpy

@@ -1,7 +1,7 @@
 """Stage 4: serve detection = both players still in their service areas for >= 0.8 s.
 
 Usage: python s4_serves.py <proxy.mp4> <players.json> <serves.json> [--review work/review.json]
-           [--sheets work/contact/serves]
+           [--sheets work/contact/serves] [--shuttle shuttle.json]
 
 Side, from the two x positions (server and receiver stand diagonally):
   near player on the camera's right + far player on the camera's left = both in their RIGHT
@@ -10,6 +10,8 @@ Side, from the two x positions (server and receiver stand diagonally):
 Who serves cannot be read from positions alone. Without --review, "server" is a guess (the
 receiver is usually the one who moves first). With --review, the serves read by eye on the
 timeline sheets (timeline_sheets.py) are used, and the automatic detection is scored against them.
+With --shuttle (stage 13), each automatic serve time is moved to the start of the serve flight when one is
+found (bball.shuttle.serve_flight): stillness ends up to 2 s away from the contact, the flight within 0.7 s.
 
 Output: {"serves": [{"n", "t", "server", "side", "diag_ok", "margin", "checked", "r": [x, y],
           "o": [x, y]}, ...], "auto": [automatic candidates]}
@@ -22,6 +24,7 @@ import numpy as np
 
 from bball import court
 from bball.io import load_json, save_json
+from bball.shuttle import serve_flight
 from bball.track import positions, rolling_median, speed
 from bball.video import contact_sheet, read_frame, with_zoom
 
@@ -131,6 +134,7 @@ def main():
     ap.add_argument("--review", help="serves read by eye (review.json): used instead of the automatic ones")
     ap.add_argument("--sheets", default="work/contact/serves")
     ap.add_argument("--closeups", help="also write 0.1 s close-ups of both players around every serve here")
+    ap.add_argument("--shuttle", help="shuttle.json (stage 13): time automatic serves by the serve flight")
     args = ap.parse_args()
 
     data = load_json(args.players)
@@ -176,6 +180,26 @@ def main():
         else:
             auto.append(c)
     print(f"automatic: {len(cands)} still windows -> {len(auto)} serve candidates")
+    if args.shuttle:
+        fl = load_json(args.shuttle)["flights"]
+        moved = 0
+        for c in auto:
+            ts = serve_flight(fl, c["t"])
+            c["t_still_end"], c["timed_by"] = c["t"], "players"
+            if ts is not None:
+                c["t"], c["timed_by"] = ts, "shuttle"
+                moved += 1
+        # two candidates on the same flight are the same serve: keep the one that was closest to it
+        same = {}
+        for c in auto:
+            if c["timed_by"] == "shuttle":
+                k = c["t"]
+                if k not in same or abs(c["t_still_end"] - k) < abs(same[k]["t_still_end"] - k):
+                    same[k] = c
+        dup = [c for c in auto if c["timed_by"] == "shuttle" and same[c["t"]] is not c]
+        auto = [c for c in auto if not any(c is d for d in dup)]
+        print(f"shuttle: {moved} serve times taken from the serve flight"
+              + (f", {len(dup)} duplicate(s) dropped" if dup else "") + f" -> {len(auto)} candidates")
 
     if args.review:
         # serves read by eye are the truth; the side is measured from the positions just before contact

@@ -21,6 +21,16 @@ Le script fait quatre choses :
 
 Si Windows Defender (accès contrôlé aux dossiers) est actif, autorise-y Python et ffmpeg ; `doctor` le détecte.
 
+**Suivi du volant (facultatif).** TrackNetV3 repère le volant sur chaque image ; le programme s'en sert pour dater les services. Ses poids sont publiés pour PyTorch : il faut les convertir une fois en ONNX.
+
+```
+.venv\Scripts\python.exe -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+.venv\Scripts\python.exe -m pip install onnx
+.venv\Scripts\python.exe download_models.py --shuttle
+```
+
+PyTorch ne sert qu'à cette conversion. Ensuite, le suivi prend environ 0,06 s par image : 5 minutes pour une vidéo de 2 min 30.
+
 ## Analyser une vidéo : `run.py`
 
 Chaque analyse a son propre dossier `analyses\<date>_<nom>\`, avec tous ses fichiers. Une nouvelle analyse n'écrase jamais une ancienne.
@@ -80,11 +90,12 @@ On les change avec `run.py set <analyse> clé=valeur`. Les étapes concernées s
 | `camera=raised` | caméra surélevée : retire du rapport la limite « caméra au sol » (défaut : `floor` ; `sol` et `haute` marchent aussi) |
 | `footage=tv` | vidéo de retransmission : gros plans et ralentis ignorés, joueur proche = celui qui est dans la moitié proche (défaut : `own`) |
 | `speed=1.3` | vitesse de lecture des échanges dans la vidéo |
+| `shuttle=off` | désactive le suivi du volant (actif par défaut s'il est installé) |
 | `"report_date=27 octobre 2026"` | date écrite sur le PDF (par défaut, le jour de création de l'analyse ; les guillemets sont nécessaires à cause des espaces) |
 
 Exemple : `.venv\Scripts\python.exe run.py set match-paul start=15 shorts_hue=[170,10]`. Une valeur vide (`thr=`) supprime le réglage.
 
-`run.py run <analyse> --redo <étape>` refait une étape et tout ce qui en dépend. Étapes possibles : `proxy`, `detect`, `calib`, `players`, `sheets`, `serves`, `score`, `rallies`, `movement`, `pose`, `pickups`, `report`, `pdf`, `video`. Une étape interrompue ou en échec est refaite au `run` suivant.
+`run.py run <analyse> --redo <étape>` refait une étape et tout ce qui en dépend. Étapes possibles : `proxy`, `detect`, `calib`, `players`, `shuttle`, `sheets`, `serves`, `score`, `rallies`, `movement`, `pose`, `pickups`, `report`, `pdf`, `video`. Une étape interrompue ou en échec est refaite au `run` suivant.
 
 ### Historique
 
@@ -105,6 +116,7 @@ Pour une sauvegarde hors du PC, copie le dossier `analyses\` (OneDrive, disque e
 | `dets.json` | 1 | personnes détectées, 10 fois/s |
 | `calib.json` | 2 | calibrage du terrain (clics + homographie) |
 | `players.json` | 3 | positions des deux joueurs en mètres |
+| `shuttle.json` | 13 | position du volant sur chaque image, et ses trajectoires (si le suivi est installé) |
 | `serves_auto.json`, `contact\timeline\` | 4a | services détectés automatiquement, planches de lecture |
 | `review.json` | lecture | services et fins d'échange lus à l'œil |
 | `serves.json`, `score.json` | 4, 5 | services, score et contrôle de cohérence |
