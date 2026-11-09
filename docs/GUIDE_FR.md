@@ -21,7 +21,7 @@ Le script fait quatre choses :
 
 Si Windows Defender (accès contrôlé aux dossiers) est actif, autorise-y Python et ffmpeg ; `doctor` le détecte.
 
-**Suivi du volant (facultatif).** TrackNetV3 repère le volant sur chaque image ; le programme s'en sert pour dater les services. Ses poids sont publiés pour PyTorch : il faut les convertir une fois en ONNX.
+**Suivi du volant (facultatif).** TrackNetV3 repère le volant sur chaque image ; le programme s'en sert pour dater les services. Il supporte les vidéos montées, filmées à la main ou télévisées : l'image de fond est refaite à chaque plan, et les ralentis sont écartés. Ses poids sont publiés pour PyTorch : il faut les convertir une fois en ONNX.
 
 ```
 .venv\Scripts\python.exe -m pip install torch --index-url https://download.pytorch.org/whl/cpu

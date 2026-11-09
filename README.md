@@ -50,7 +50,7 @@ py -3.12 -m venv .venv
 | `tracknet.onnx`, `inpaintnet.onnx` (optional) | stage 13 | [TrackNetV3](https://github.com/qaz812345/TrackNetV3), converted from its checkpoints | MIT (weights included) |
 </details>
 
-**Shuttle tracker (optional).** TrackNetV3 finds the shuttle in every frame; the pipeline then times the serves from the shuttle's flight. Its checkpoints are published for PyTorch, so they are converted to ONNX once:
+**Shuttle tracker (optional).** TrackNetV3 finds the shuttle in every frame; the pipeline then times the serves from the shuttle's flight. It copes with edited and handheld videos and with TV broadcasts: the background is rebuilt for each shot, and replays are left out (measurements on seven videos in [docs/PIPELINE.md](docs/PIPELINE.md#13-shuttle-tracking-s13_shuttlepy-optional)). Its checkpoints are published for PyTorch, so they are converted to ONNX once:
 
 ```
 .venv\Scripts\python.exe -m pip install torch --index-url https://download.pytorch.org/whl/cpu

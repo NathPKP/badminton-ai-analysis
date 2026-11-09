@@ -2,13 +2,14 @@
 import numpy as np
 
 
-def flights(p, fps, t0, w, h, min_frames=5, min_move=0.03, max_gap=4, max_jump=0.12):
+def flights(p, fps, t0, w, h, min_frames=5, min_move=0.03, max_gap=4, max_jump=0.12, shots=None):
     """Group per-frame positions into moving flights.
 
     p: list of [x, y, how] (fractions of the frame) or None, one per frame from t0.
     Detections that come back to the same spot (within 0.5 % of the width) at three other moments more than
     1 s apart are dropped first: a white climbing hold, a logo, a shuttle lying on the floor. The rest is cut
-    into runs (gaps <= max_gap frames, jumps <= max_jump x width per frame), kept when they last at least
+    into runs (gaps <= max_gap frames, jumps <= max_jump x width per frame, never across a cut when `shots`, the
+    shot number of each frame, is given), kept when they last at least
     min_frames frames and travel at least min_move x width.
     Returns [{"t0", "t1", "n", "a": [x, y], "b": [x, y]}, ...] in time order (a, b: first and last point).
     """
@@ -25,7 +26,7 @@ def flights(p, fps, t0, w, h, min_frames=5, min_move=0.03, max_gap=4, max_jump=0
         if cur:
             gap = k - cur[-1]
             jump = np.hypot(pts[k][0] - pts[cur[-1]][0], pts[k][1] - pts[cur[-1]][1])
-            if gap > max_gap or jump > max_jump * w * gap:
+            if gap > max_gap or jump > max_jump * w * gap or (shots is not None and shots[k] != shots[cur[-1]]):
                 runs.append(cur)
                 cur = []
         cur.append(k)

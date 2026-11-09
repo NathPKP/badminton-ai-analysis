@@ -135,6 +135,18 @@ class Shuttle(unittest.TestCase):
         long_gap = [True, True] + [False] * 20 + [True]
         self.assertFalse(s.inpaint_mask([100] * 23, long_gap, 14).any())   # too long: left empty
         self.assertFalse(s.inpaint_mask([5] * 7, seen, 14).any())          # near the top edge: left empty
+        self.assertFalse(s.inpaint_mask(ys, seen, 14, shots=[0, 0, 0, 0, 1, 1, 1])[2:4].any())  # across a cut
+
+    def test_backgrounds_follow_the_camera(self):
+        import numpy as np
+
+        import s13_shuttle as s
+        shots = np.array([0] * 60 + [1] * 90)
+        moving = np.array([False] * 60 + [False] * 30 + [True] * 60)
+        self.assertEqual(s.segments(shots, moving, 30, "global"), [(0, 149, 0, 149)])
+        segs = s.segments(shots, moving, 30, "shot")
+        self.assertEqual(segs[:2], [(0, 59, 0, 59), (60, 89, 60, 89)])     # one per still stretch of each shot
+        self.assertEqual(segs[2:], [(90, 119, 60, 149), (120, 149, 90, 149)])  # moving: per second, same shot only
 
 
 class Settings(unittest.TestCase):

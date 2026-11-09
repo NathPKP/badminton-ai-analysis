@@ -122,10 +122,16 @@ Movement per rally and per player across analyses, computed exactly as stage 7 d
 [TrackNetV3](https://github.com/qaz812345/TrackNetV3) (MIT, weights included) finds the shuttle in every frame.
 - **Install**: `download_models.py --shuttle` downloads the published PyTorch checkpoints (130 MB, checksum verified) and converts them once to ONNX (`models/tracknet.onnx`, `models/inpaintnet.onnx`). The conversion needs PyTorch and onnx, and checks that the ONNX output matches PyTorch. Analysing a video then needs only onnxruntime. `run.py` runs the stage when these two files exist, unless `shuttle=off`.
 - **Method**, as in the original `predict.py`:
-  - frames resized to 512×288, 8 at a time, after a median background image of the video;
+  - frames resized to 512×288, 8 at a time, after a median background image;
   - the shuttle is the centre of the largest heatmap blob above 0.5;
   - InpaintNet fills short gaps inside a flight. Unlike the original, gaps longer than its 16-frame window stay empty, because over a close-up it invented a whole trajectory.
   - Windows don't overlap: the original's overlapping "weight" mode costs 8 times more for little gain.
+- **Camera changes.** The original takes one background image for the whole video, which assumes a fixed camera. Phone videos posted online are often edited or filmed by hand, and broadcasts cut between cameras. So the video is scanned first:
+  - A **cut** is a jump of the grey-level histogram or of the mean pixel change between two frames. The camera **moves** when the image shifts by more than 0.3 % of its width in 0.2 s (phase correlation).
+  - Each still stretch of a shot gets its own background. While the camera moves, there is one per second, made from the frames within 1 s in the same shot.
+  - No 8-frame window, filled-in gap or flight crosses a cut. `shuttle.json` lists the shots and the moving stretches (`camera`).
+  - `--bg global` restores the original method.
+  - **Broadcasts:** the real shuttle is also seen in close-ups and slow-motion replays, out of play. With `footage=tv`, `--view` keeps only the frames where stage 3 found the main court view.
 - **Speed** on a 13th-gen i5 CPU: about 0.06 s per frame, so 5 min for the 157 s test clip and 15–17 min for 8 minutes of TV footage.
 - **Flights** (`bball/shuttle.py`):
   - Detections that come back to the same spot at several moments are dropped first: on the test clip, 30 % of them were white holds of a climbing wall behind the court.
@@ -135,11 +141,21 @@ Movement per rally and per player across analyses, computed exactly as stage 7 d
   - The time error went from a median of 0.7 s (largest 2.3 s) to a median of 0.2 s (largest 0.7 s).
   - The 0.1 s close-ups used to read the server are cut around these times.
 
-| Measured | BWF TV footage | Test clip (floor camera) |
-|---|---|---|
-| Shuttle found, frames during rallies | 81–88 % | 35 % |
-| Shuttle found, frames between rallies | 8 % | 18 % (shuttle in hand or on the floor, climbing holds) |
-| Detections on the shuttle (16 random crops of flight points) | 15 / 16 | 12 / 16 (the other 4 look like round white holds) |
+Seven videos were measured on windows of 60 to 150 s. "Precision" is the share of detections that are really on the shuttle, out of 16 random flight points checked by eye.
+
+| Video | Camera | Shuttle found | Precision |
+|---|---|---|---|
+| BWF final, men | TV: cuts, replays, main camera moving half of the time | 94 % of rally frames (88 % with one background for the whole video) | 12–15 / 16 |
+| BWF final, women | TV | 76 % of rally frames. Outside rallies: 54 %, mostly the real shuttle in replays; 11 % with `--view` | 13 / 16 |
+| Junior U19 boys | fixed, low, to the side | 65 % of all frames | 14 / 16 |
+| Junior U17 boys | fixed, low, in a corner, dark background | 25 % of all frames | 14 / 16 |
+| Junior U15 girls | fixed, edited (score overlay, points cut out) | 60 % of all frames | 14–15 / 16 |
+| Amateur men | handheld, panning (moving 28 % of the window), edited | (no reference) | 12–13 / 16: misses are on spectators' heads |
+| Test clip (the author's match) | fixed, on the floor, climbing wall behind | 35 % of rally frames | 12 / 16: the misses are round white holds |
+
+- **Per-shot backgrounds:** they help on the moving broadcast camera (88 % to 94 %) and change nothing elsewhere, so they are the default.
+- **What usually fails:** white objects the size of a shuttle that move in the image, such as spectators' faces, a racket shaft, a foot, or holds of a climbing wall.
+- **What is not handled:** zooms and fast pans inside a shot leave a blurred background. The tracker then finds fewer shuttles, but the precision measured on the amateur video stays the same.
 
 - **What it does not solve yet on floor footage:**
   - **Who serves.** The first point of the serve flight is near the far player when they serve low. After a high serve the shuttle is first seen already high, where the near player's large box also covers it. Result: 7 of 12.
