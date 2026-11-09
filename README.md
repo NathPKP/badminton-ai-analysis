@@ -69,7 +69,10 @@ The command creates `analyses/<video date>_my-match/` and runs every stage it ca
 
 It needs you at two points:
 
-1. **Court calibration.** A window opens, and you click 4 or more court points: corners, T junctions, net posts… It takes about 2 minutes. For the next video filmed from the same spot, `--calib-from my-match` reuses the points.
+1. **Court calibration.**
+   - `s2_autocalib.py` first tries to find the court from its painted lines, and checks the result against where the players stand. When the lines are clear, as on a club court filmed from 2 m up or on TV footage, nothing is asked: just check the image it draws.
+   - Otherwise a window opens, and you click 4 or more court points: corners, T junctions, net posts… It takes about 2 minutes.
+   - For the next video filmed from the same spot, `--calib-from my-match` reuses the points.
 2. **`review.json`**: who serves, and when each rally ends.
    - It is read on contact sheets (one frame every 0.5 s), starting from a draft (`review.todo.json`) pre-filled by automatic serve detection.
    - On floor-level footage, automatic server detection got 5 to 10 serves right out of 12, while reading 0.1 s close-ups got 12 out of 12.
@@ -103,6 +106,7 @@ Other commands:
 | `coach` | `auto` (rules) or `ai` (stop and wait for an AI-written coaching.json) |
 | `shorts_hue` | `[min,max]` OpenCV hue (0–179) of your shorts: blue `[100,135]` (default), red `[170,10]`, green `[40,85]` |
 | `camera` | `floor` (default) or `raised` |
+| `footage` | `own` (default) or `tv`: broadcast footage, where close-ups and replays are skipped and the near player is whoever is in the near half |
 | `thr` | stage 9 bend threshold (0.82) |
 | `last_winner` | `R` (you) or `O`, if the video shows who won the last point |
 | `accept_score` | serves that break the side rule but are right (fault, let), e.g. `[7]` |
@@ -134,6 +138,9 @@ Any assistant that can read images and files can follow the same instructions.
 | 9 | `s9_pickups.py` | who bends to pick up the shuttle, which tells where it came down |
 | 10 | `s10_report.py`, `s10_coach.py`, `s10_pdf.py` | numbers split by points won and lost; lessons; PDF report |
 | 11 | `s11_video.py` | vertical reel with overlays and voice-over |
+| 12 | `s12_benchmark.py` | movement per rally compared across analyses, e.g. with professional players |
+
+The PDF compares your movement with professional singles players. The reference numbers are measured by the same code on two BWF finals filmed for TV and stored in [benchmarks/pro_singles.json](benchmarks/pro_singles.json). For example, a median rally lasts 8.8 s for the pros, and they move at 1.33 m/s on average.
 
 Details of each stage, the file formats, and what was learned along the way: **[docs/PIPELINE.md](docs/PIPELINE.md)**. Every script also runs on its own (`--help`). A user guide in French is in [docs/GUIDE_FR.md](docs/GUIDE_FR.md).
 
@@ -162,6 +169,7 @@ bball/                 shared helpers: court geometry, I/O, smoothing, fonts, te
 setup.ps1, setup.sh    one-command install
 download_models.py     fetches the model files into models/
 examples/              review.example.json, coaching.example.json
+benchmarks/            reference numbers (professional singles), aggregates only
 tests/                 unit tests (python -m unittest discover tests), run on every push
 docs/                  PIPELINE.md (technical), GUIDE_FR.md (user guide in French)
 CLAUDE.md              instructions for AI assistants working in the repository

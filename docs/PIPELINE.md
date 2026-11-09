@@ -23,6 +23,17 @@ Output `dets.json`: `{"fps": 10, "frames": [{"t", "p": [[x1, y1, x2, y2, score],
 An OpenCV window opens on one frame. For each point, press the letter of a named court point (corners, T junctions, service-line ends, net posts, far long-service line…), then click it. With at least 4 points, `cv2.findHomography` gives H (metres → pixels). The check image redraws the court from H, so it shows whether the fit is right; with exactly 4 points the reprojection error is always 0 and says nothing.
 `calib.json` holds one segment per camera position (`t0`, `t1`, the clicked points, H). `--recompute` solves again from the saved points without opening the window.
 
+**Automatic calibration: `s2_autocalib.py`.** `run.py` tries it first.
+- **Line mask.** It finds the painted lines: pixels that are bright, thin and unsaturated (white top-hat). It does this on 40 frames, keeps those of the main camera view (the most long straight lines, and similar to each other), and combines them, which removes the players.
+- **Line candidates.** Hough lines are split into lines across the court and lines along it.
+- **Search.** Every pair across × pair along is matched to every pair of court lines in the same order. That makes about 20,000 homographies, scored in batches. Each is scored by the share of the projected court that falls on the mask.
+- **Plausibility.** A homography is rejected when the projected court is squeezed into a few pixels, when the near half is too short, when the sidelines are nearly flat, or when the court is too narrow.
+- **Refinement.** The best one is refined on every court line.
+- **Acceptance.** It is accepted when at least 60 % of the projected court lies on painted lines, and when the players' feet from stage 1 put somebody in each half in at least 25 % of the frames that show people.
+  - The feet check is what tells right from wrong. On the floor-level test clip, a wrong court reached 69 % on the lines but 0 % on the feet; the hand calibration scores 97 % on the feet.
+  - On a BWF broadcast, the court was found exactly with no click.
+- **Fallback.** Otherwise the window opens as before, with the points it found already placed.
+
 ### 3. Players: `s3_players.py`
 The feet point (bottom centre of the box) goes through H⁻¹ to court metres.
 - **You** are the near-half person whose shorts band contains at least `--min-blue` (0.35) pixels of the shorts hue. The band is 48–62 % of the box height, central half of its width; the hue is set with `--shorts-hue`, blue by default. If nobody is blue enough, the frame is left as a gap rather than guessed.
@@ -30,6 +41,9 @@ The feet point (bottom centre of the box) goes through H⁻¹ to court metres.
 - A box cut off by the bottom of the frame is flagged `rt` (feet out of frame, position unknown).
 - Short gaps are filled (`rf`, `of`) and isolated jumps removed.
 - `--start` drops the warm-up.
+- **TV footage** (`footage=tv` in `run.py`):
+  - `--near-any` takes the most confident person in the near half instead of the shorts colour, because players change ends between games.
+  - `--check-view` leaves out the frames where the calibrated court does not fall on painted lines: close-ups, replays, crowd shots. Each frame gets `"v": true/false`.
 
 ### 4. Serves: `timeline_sheets.py`, `s4_serves.py`
 `timeline_sheets.py` draws contact sheets of the whole match: one tile every 0.5 s, each with a zoom on the far player. They are used to read the match by eye.
@@ -87,6 +101,23 @@ All fixed texts (report, reel, run.py messages) exist in English and French (`bb
 ### 11. Reel: `s11_video.py`
 The reel is 1080×1920, with a score bar, the match video, the mini map and captions. Rallies are cut from the serve to the rally end and played at `--speed` (1.3). After the rally named in each lesson, the video freezes on the lesson frames while the voice explains. The voice is Kokoro TTS, French voice `ff_siwis`, run locally. Frames are piped raw to ffmpeg, and the finished reel only replaces an existing one at the end.
 
+### 12. Benchmark: `s12_benchmark.py`
+Movement per rally and per player across analyses, computed exactly as stage 7 does (same smoothing, same `rally_stats`).
+- **Rallies.** They come from `points.json` when the analysis has one. On TV footage (`footage=tv`) they are found automatically:
+  - The main view is on screen from the serve preparation until shortly after the rally ends.
+  - So each main-view run of 4 s or more holds one rally, from the end of the still preparation to the last fast movement.
+  - Checked by eye on BWF footage: the start is right, and the end comes about 1 s late.
+- **Reference numbers.** [`benchmarks/pro_singles.json`](../benchmarks/pro_singles.json) holds the aggregates from two BWF singles finals: 23 rallies, both players. The videos are not part of the repository.
+- **In the report.** `s10_report.py` measures the player's own rallies the same way, and the PDF adds a "compared with professional players" table.
+
+| Per rally (median) | Pros (2 BWF finals) | Test clip (amateur, floor camera) |
+|---|---|---|
+| Rally length | 8.8 s | 3.8 s |
+| Average speed | 1.33 m/s | 0.90 m/s |
+| Peak speed | 2.7 m/s | 1.6 m/s |
+| Distance per 10 s of play | 13.6 m | 10.2 m |
+| Distance to the base 1 s after a trip | 1.2 m | 1.4 m |
+
 ## `run.py`: orchestration
 
 - **One folder per analysis**: `analyses/<video date>_<name>/` with `analysis.json` (source video and settings) and `.pipeline.json` (state).
@@ -100,6 +131,11 @@ The reel is 1080×1920, with a score bar, the match video, the mini map and capt
 ## Lessons learned on floor-level footage
 
 - **Who serves** cannot be read reliably from automatic cues. Positions, motion energy, pose and movement onset were all tried, and each gave 5 to 10 correct servers out of 12. Reading 0.1 s close-ups of both players, without knowing the expected answer, gave 12 out of 12. One-frame-every-0.5 s sheets are not enough: a serve swing was once read as the return.
+- **The service-court rule does not identify the server on its own.** With the 12 sides measured correctly, 128 of the 4,096 possible server sequences still obey the rule.
+  - With the rule, the "who moves first" guess and the side where the shuttle was picked up, the most likely sequence had 10 servers right out of 12, but the true one ranked only 29th.
+  - When the draft is written, the shuttle side isn't known yet. With only the rule and the guess, the result drops to 7 out of 12, worse than the guess alone (8 out of 12).
+  - So stage 5 uses the rule as a check, not as a solver. Reliable automation needs the shuttle itself (a shuttle tracker).
+- **Player speed does not find amateur rallies.** On the test clip, the faster of the two players moves at a median 1.0 m/s during rallies and 0.7 m/s between them, and the two ranges overlap widely: players walk to pick up the shuttle about as fast as they play. Rally ends are therefore read by eye, or will come from a shuttle tracker.
 - **Perspective fools the eye on depth**: twice, a shuttle looked deep when it was short. Measure it with the calibration (`mark_px`, then H⁻¹) instead of judging by eye.
 - **Opponent depth**: a horizon-based correction of the calibration made the far depth worse, and it was removed. Only clicked points spread in depth across the far half, such as the far long-service line and the far corners, can fix it.
 - **Coaching claims** must survive an adversarial check. The first draft overstated three claims: rally durations inflated by padding, statistics computed on too few frames, and freeze frames that did not show the fault described.

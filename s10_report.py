@@ -105,6 +105,15 @@ def main():
     agg["you_depth_at_end"] = {"won": end_depth["R"], "lost": end_depth["O"]}
     agg["movement_you"] = {k: msum["R"].get(k) for k in ("all", "you_won", "you_lost", "<=5s", "5-10s", ">10s")}
     agg["pose_you"] = pose["stats"]
+    bench = Path(__file__).resolve().parent / "benchmarks" / "pro_singles.json"
+    if bench.exists() and (w / "analysis.json").exists():
+        # your rallies measured exactly like the professional ones (s12_benchmark.py)
+        import s12_benchmark
+        rows_r = [r for r in s12_benchmark.analyse(w)["rows"] if r["player"] == "r"]
+        if rows_r:
+            pro = load_json(bench)
+            agg["benchmark"] = {"you": s12_benchmark.summary(rows_r), "pro": pro["summary"],
+                                "pro_sources": [x["title"] for x in pro["sources"]]}
 
     # example moments for the lessons: back-court frames with the racket down / up, by result
     winner = {p["n"]: p["winner"] for p in pts}

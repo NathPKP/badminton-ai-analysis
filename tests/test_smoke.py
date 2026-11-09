@@ -106,6 +106,19 @@ class Coach(unittest.TestCase):
             self.assertEqual(unfilled, [])                              # every displayed template filled
 
 
+class Benchmark(unittest.TestCase):
+    def test_tv_rallies(self):
+        import numpy as np
+        from s12_benchmark import tv_rallies
+        t = np.arange(0, 30, 0.1)
+        view = (t >= 2) & (t < 14)                       # main view 2-14 s, then a close-up
+        speed = np.where((t >= 5) & (t < 12), 2.0, 0.3)   # still serve preparation, rally 5-12 s
+        (t0, t1, cut0, cut1), = tv_rallies(t, view, speed)
+        self.assertAlmostEqual(t0, 5.0, delta=0.11)
+        self.assertAlmostEqual(t1, 12.2, delta=0.11)       # last fast frame + 0.3 s
+        self.assertFalse(cut0 or cut1)
+
+
 class Settings(unittest.TestCase):
     def test_parse_and_num(self):
         import run as runpy

@@ -50,7 +50,7 @@ Le dossier s'appelle `<date de la vidéo>_<nom>`, par exemple `2026-10-28_match-
 
 `run` lance toutes les étapes à faire, dans l'ordre. Il ne refait que ce qui a changé : le contenu d'un fichier d'entrée ou un réglage. Il s'arrête quand quelqu'un doit intervenir et explique quoi faire ; on relance `run` ensuite. Il y a quatre arrêts possibles :
 
-1. **Calibrage du terrain.** Une fenêtre s'ouvre et tu cliques les points du terrain (environ 2 minutes).
+1. **Calibrage du terrain.** `s2_autocalib.py` essaie d'abord de trouver le terrain à partir de ses lignes peintes, et vérifie le résultat avec la position des joueurs. Quand les lignes sont nettes (caméra en hauteur, vidéo TV), il n'y a rien à faire, sauf vérifier l'image. Sinon, une fenêtre s'ouvre et tu cliques les points du terrain (environ 2 minutes).
    - Si la caméra était au même endroit qu'une analyse précédente, ajoute `--calib-from <analyse>` à `new`. Les points sont repris sans fenêtre ; il ne reste qu'à vérifier l'image `contact\s2_calib_check.jpg`.
    - Si le terrain jaune ne tombe pas sur les lignes, `run.py run <analyse> --redo calib` rouvre la fenêtre avec les points déjà placés.
 2. **`review.json`** (qui sert, et quand chaque échange se termine). Claude le remplit en lisant les planches `contact\timeline`. Un brouillon, `review.todo.json`, est pré-rempli avec les services détectés automatiquement. Demande à Claude : « lis les planches de analyses\<dossier> et écris review.json ».
@@ -78,6 +78,7 @@ On les change avec `run.py set <analyse> clé=valeur`. Les étapes concernées s
 | `last_winner=R` | gagnant du dernier point, si la vidéo le montre (`R` = toi, `O` = adversaire) |
 | `accept_score=[7]` | services qui contredisent la règle du côté mais sont justes (faute, let…) |
 | `camera=raised` | caméra surélevée : retire du rapport la limite « caméra au sol » (défaut : `floor` ; `sol` et `haute` marchent aussi) |
+| `footage=tv` | vidéo de retransmission : gros plans et ralentis ignorés, joueur proche = celui qui est dans la moitié proche (défaut : `own`) |
 | `speed=1.3` | vitesse de lecture des échanges dans la vidéo |
 | `"report_date=27 octobre 2026"` | date écrite sur le PDF (par défaut, le jour de création de l'analyse ; les guillemets sont nécessaires à cause des espaces) |
 
@@ -123,6 +124,10 @@ Exemples complets :
 - [`examples\review.example.json`](../examples/review.example.json) pour le format de `review.json`.
 
 Chaque étape reste un script autonome (`s0_proxy.py` … `s11_video.py`). `run.py` les lance avec les bons chemins et affiche chaque commande lancée.
+
+## Comparaison avec les pros
+
+Le rapport PDF compare tes déplacements à ceux de joueurs professionnels de simple : durée des échanges, vitesse, distance parcourue, replacement. Les chiffres de référence ont été mesurés par le même code sur deux finales BWF filmées pour la télévision (`benchmarks/pro_singles.json`, uniquement des chiffres). `s12_benchmark.py` refait ces mesures sur n'importe quelles analyses.
 
 ## Limites (caméra au sol)
 

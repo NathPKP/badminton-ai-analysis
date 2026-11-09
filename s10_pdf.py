@@ -280,8 +280,30 @@ def main():
                                 w=T.num(won["median_dist_1s_after_trip"], 1), trips=trips, sure=sure), S["p"]))
     story.append(KeepTogether([
         Paragraph(T("h_move"), S["h1"]),
-        Table([[pic(heat, 6.3), move]], colWidths=[6.8 * cm, 10.2 * cm], style=[("VALIGN", (0, 0), (-1, -1), "TOP")]),
+        Table([[pic(heat, 5.6), move]], colWidths=[6.1 * cm, 10.9 * cm], style=[("VALIGN", (0, 0), (-1, -1), "TOP")]),
         Paragraph(T("cap_heat"), S["cap"])]))
+    bench = sm.get("benchmark")
+    if bench:
+        y, pr = bench["you"], bench["pro"]
+
+        def cell(d, *keys, n=1, unit=""):
+            for k in keys:
+                d = (d or {}).get(k)
+            return "—" if d is None else f"{T.num(d, n)}{unit}"
+        rows_b = [[Paragraph(f"<b>{x}</b>", S["cell"]) for x in T("bench_head")]]
+        for label, keys, n, unit in ((T("bench_rows")[0], ("rally_s", "median"), 1, " s"),
+                                     (T("bench_rows")[1], ("avg_speed", "median"), 2, " m/s"),
+                                     (T("bench_rows")[2], ("peak_speed", "median"), 1, " m/s"),
+                                     (T("bench_rows")[3], ("distance_per_10s",), 1, " m"),
+                                     (T("bench_rows")[4], ("after_1s_m",), 1, " m")):
+            rows_b.append([Paragraph(label, S["cell"]), Paragraph(cell(y, *keys, n=n, unit=unit), S["cell"]),
+                           Paragraph(cell(pr, *keys, n=n, unit=unit), S["cell"])])
+        tb_b = Table(rows_b, colWidths=[8.5 * cm, 3 * cm, 3 * cm])
+        tb_b.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, 0), 0.8, INK), ("LINEBELOW", (0, 1), (-1, -1), 0.3, RULE),
+                                  ("TOPPADDING", (0, 0), (-1, -1), 1.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5)]))
+        story.append(KeepTogether([Paragraph(T("h_bench"), S["h1"]),
+                                   Paragraph(T("bench_intro", n=pr["rallies"]), S["p"]), tb_b,
+                                   Paragraph(T("bench_note"), S["small"])]))
 
     # method
     n_srv, contra = len(score["points"]), score["contradictions"]

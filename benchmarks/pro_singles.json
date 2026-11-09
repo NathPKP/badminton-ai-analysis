@@ -1,0 +1,96 @@
+{
+ "about": "Movement of professional singles players, per rally, measured by s12_benchmark.py on BWF TV footage (automatic calibration, rallies found from the main court view, both players). Only these numbers are kept; the videos are not part of the repository. Rally ends found automatically are about 1 s late, so rally lengths are slightly long.",
+ "sources": [
+  {
+   "video": "https://www.youtube.com/watch?v=mMp8XfBXde4",
+   "title": "HSBC BWF World Tour Finals 2025, men's singles final, Popov vs Shi Yu Qi (BWF TV), 5:00-13:00",
+   "rallies": 11,
+   "summary": {
+    "rallies": 11,
+    "player_rallies": 22,
+    "rally_s": {
+     "median": 7.6,
+     "iqr": [
+      5.4,
+      11.05
+     ],
+     "n": 8
+    },
+    "avg_speed": {
+     "median": 1.29,
+     "iqr": [
+      1.17,
+      1.4
+     ]
+    },
+    "peak_speed": {
+     "median": 2.57
+    },
+    "distance_per_10s": 12.9,
+    "back_share": 0.0,
+    "front_share": 0.02,
+    "trips_per_10s": 1.05,
+    "after_1s_m": 1.08
+   }
+  },
+  {
+   "video": "https://www.youtube.com/watch?v=99riPBazzfk",
+   "title": "BWF World Championships 2026, women's singles final, An Se Young vs Akane Yamaguchi (BWF TV), 5:00-13:00",
+   "rallies": 12,
+   "summary": {
+    "rallies": 12,
+    "player_rallies": 24,
+    "rally_s": {
+     "median": 9.5,
+     "iqr": [
+      4.1,
+      11.0
+     ],
+     "n": 9
+    },
+    "avg_speed": {
+     "median": 1.42,
+     "iqr": [
+      1.26,
+      1.6
+     ]
+    },
+    "peak_speed": {
+     "median": 3.22
+    },
+    "distance_per_10s": 14.1,
+    "back_share": 0.1,
+    "front_share": 0.0,
+    "trips_per_10s": 1.49,
+    "after_1s_m": 1.19
+   }
+  }
+ ],
+ "summary": {
+  "rallies": 23,
+  "player_rallies": 46,
+  "rally_s": {
+   "median": 8.8,
+   "iqr": [
+    4.8,
+    11.0
+   ],
+   "n": 17
+  },
+  "avg_speed": {
+   "median": 1.33,
+   "iqr": [
+    1.22,
+    1.54
+   ]
+  },
+  "peak_speed": {
+   "median": 2.7
+  },
+  "distance_per_10s": 13.6,
+  "back_share": 0.04,
+  "front_share": 0.0,
+  "trips_per_10s": 1.3,
+  "after_1s_m": 1.17
+ }
+}

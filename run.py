@@ -62,9 +62,11 @@ MSG = {
         "all_done": "All up to date. Report: {pdf}\n                 Video:  {video}",
         "calib_reused": "   calibration points taken from {src}",
         "calib_check": "   CHECK the image {img}: the yellow court must fall on the lines.",
-        "calib_moved": "   If the camera moved: {me} run {id} --redo calib",
+        "calib_moved": "   If it is wrong (or the camera moved): {me} run {id} --redo calib (opens the window, points in place)",
         "calib_failed": "   FAILED to reuse the calibration: see the message above.",
         "calib_todo": "   TO DO: calibrate the court (a window opens): {me} run {id}",
+        "calib_auto": "   court found from its painted lines (s2_autocalib.py)",
+        "calib_auto_no": "   the painted lines are not clear enough for an automatic calibration: by hand",
         "calib_window": "   Calibration window: press the letter of a court point, then click it; Enter when done "
                         "(see s2_calibrate.py).",
         "calib_stopped": "   calibration stopped: nothing changed",
@@ -116,12 +118,14 @@ MSG = {
                    "speed": "playback speed of the rallies in the reel (1.3)",
                    "report_date": "date printed on the PDF report (default: the day the analysis was created)",
                    "camera": "floor (phone on the floor) or raised (camera 2 m or higher)",
+                   "footage": "own (your video, you in the near half) or tv (broadcast: cuts, players change ends)",
                    "calib_from": "analysis whose calibration points are reused",
                    "accept_score": "serves that break the side rule but are right (fault, let...), e.g. [7]"},
         "bad_value": {"shorts_hue": "shorts_hue: two numbers, e.g. shorts_hue=[170,10]",
                       "accept_score": "accept_score: the list of accepted serve numbers, e.g. accept_score=[7]",
                       "number": "{k}: a number, e.g. {k}=12", "last_winner": "last_winner: R (you) or O (opponent)",
-                      "camera": "camera: floor or raised", "lang": "lang: en or fr", "coach": "coach: auto or ai"},
+                      "camera": "camera: floor or raised", "lang": "lang: en or fr", "coach": "coach: auto or ai",
+                      "footage": "footage: own or tv"},
     },
     "fr": {
         "stages": {"proxy": "0. copie de travail 30 i/s", "detect": "1. détection des joueurs", "calib": "2. calibrage du terrain",
@@ -140,9 +144,11 @@ MSG = {
         "all_done": "Tout est à jour. Rapport : {pdf}\n               Vidéo : {video}",
         "calib_reused": "   points de calibrage repris de {src}",
         "calib_check": "   VÉRIFIE l'image {img} : le terrain jaune doit tomber sur les lignes.",
-        "calib_moved": "   Si la caméra a bougé : {me} run {id} --redo calib",
+        "calib_moved": "   S'il est faux (ou si la caméra a bougé) : {me} run {id} --redo calib (ouvre la fenêtre, points en place)",
         "calib_failed": "   ÉCHEC du calibrage repris : voir le message ci-dessus.",
         "calib_todo": "   À FAIRE : calibrer le terrain (une fenêtre s'ouvre) : {me} run {id}",
+        "calib_auto": "   terrain trouvé à partir de ses lignes peintes (s2_autocalib.py)",
+        "calib_auto_no": "   les lignes peintes ne sont pas assez nettes pour un calibrage automatique : à la main",
         "calib_window": "   Fenêtre de calibrage : lettre du point, puis clic dessus ; Entrée pour valider (voir s2_calibrate.py).",
         "calib_stopped": "   calibrage interrompu : rien n'a changé",
         "start_todo": "   À FAIRE : indiquer la fin de l'échauffement (en secondes), par exemple :\n     {me} set {id} start=12\n"
@@ -193,12 +199,14 @@ MSG = {
                    "speed": "vitesse de lecture des échanges dans la vidéo (1.3)",
                    "report_date": "date écrite sur le rapport PDF (par défaut : le jour de création de l'analyse)",
                    "camera": "floor (téléphone posé au sol) ou raised (caméra à 2 m ou plus)",
+                   "footage": "own (ta vidéo, toi dans la moitié proche) ou tv (retransmission : coupures, changements de côté)",
                    "calib_from": "analyse dont on reprend les points de calibrage",
                    "accept_score": "services qui contredisent la règle du côté mais sont justes (faute, let...), ex. [7]"},
         "bad_value": {"shorts_hue": "shorts_hue : deux nombres, ex. shorts_hue=[170,10]",
                       "accept_score": "accept_score : la liste des numéros de service acceptés, ex. accept_score=[7]",
                       "number": "{k} : un nombre, ex. {k}=12", "last_winner": "last_winner : R (toi) ou O (adversaire)",
-                      "camera": "camera : floor ou raised", "lang": "lang : en ou fr", "coach": "coach : auto ou ai"},
+                      "camera": "camera : floor ou raised", "lang": "lang : en ou fr", "coach": "coach : auto ou ai",
+                      "footage": "footage : own ou tv"},
     },
 }
 
@@ -327,6 +335,7 @@ def stages(a):
     start = ["--start", p["start"]] if "start" in p else None
     hue = ["--shorts-hue", *p["shorts_hue"]] if "shorts_hue" in p else []
     min_blue = ["--min-blue", p["min_blue"]] if "min_blue" in p else []
+    tv = ["--near-any", "--check-view"] if p.get("footage") == "tv" else []
     thr = ["--thr", p["thr"]] if "thr" in p else []
     last = ["--last-winner", p["last_winner"]] if p.get("last_winner") else []
     speed = ["--speed", p["speed"]] if "speed" in p else []
@@ -341,7 +350,7 @@ def stages(a):
         Stage("calib", ["calib.json"], [], manual=True),
         Stage("players", ["players.json"], ["dets.json", "calib.json"],
               start and [script("s3_players.py", f("proxy.mp4"), f("dets.json"), f("calib.json"), f("players.json"),
-                                *start, *hue, *min_blue, "--sheet", f("contact/s3_players.jpg"),
+                                *start, *hue, *min_blue, *tv, "--sheet", f("contact/s3_players.jpg"),
                                 "--plot", f("figures/s3_tracks.png"))]),
         Stage("sheets", ["serves_auto.json"], ["players.json"],
               start and [script("timeline_sheets.py", f("proxy.mp4"), f("players.json"), f("contact/timeline"), *start),
@@ -464,6 +473,15 @@ def calibrate(a, window, forced):
         print(a.m("calib_check", img=check))
         print(a.m("calib_moved", me=ME, id=ident))
         return True
+    if not calib.exists() and not forced:      # first try: from the painted lines, checked with the players' feet
+        cmd = [PY, str(ROOT / "s2_autocalib.py"), str(a.dir / "proxy.mp4"), str(calib), "--dets", str(a.dir / "dets.json"),
+               "--t0", num(a.params.get("start", 0)), "--check", str(check)]
+        if subprocess.run(cmd, cwd=ROOT).returncode == 0 and calib.exists():
+            print(a.m("calib_auto"))
+            print(a.m("calib_check", img=check))
+            print(a.m("calib_moved", me=ME, id=ident))
+            return True
+        print(a.m("calib_auto_no"))
     if not window:
         print(a.m("calib_todo", me=ME, id=ident))
         return False
@@ -622,6 +640,8 @@ def parse_value(k, v, lang):
         raise SystemExit(bad["lang"])
     if k == "coach" and x not in ("auto", "ai"):
         raise SystemExit(bad["coach"])
+    if k == "footage" and x not in ("own", "tv"):
+        raise SystemExit(bad["footage"])
     if k == "calib_from":
         return resolve(str(x), lang).name
     return x
@@ -646,6 +666,8 @@ def cmd_new(args):
         params["calib_from"] = resolve(args.calib_from, lang).name
     if args.camera:
         params["camera"] = CAMERA[args.camera]
+    if args.footage:
+        params["footage"] = args.footage
     folder.mkdir(parents=True)
     dump({"id": folder.name, "video": str(video), "created": datetime.datetime.now().isoformat(timespec="seconds"),
           "params": params}, folder / "analysis.json")
@@ -736,6 +758,7 @@ def main():
     p.add_argument("--shorts-hue", type=int, nargs=2, metavar=("LO", "HI"), help="hue of your shorts (default blue 100 135)")
     p.add_argument("--calib-from", help="reuse the calibration of another analysis (same camera spot)")
     p.add_argument("--camera", choices=("floor", "raised", "sol", "haute"), help="camera on the floor (default) or raised")
+    p.add_argument("--footage", choices=("own", "tv"), help="tv: broadcast with cuts and players changing ends")
     p.add_argument("--date", help="match date YYYY-MM-DD (default: date of the video file)")
     p.add_argument("--no-window", action="store_true", help="do not open the calibration window")
     p = sub.add_parser("run", help="do the missing or out-of-date stages")

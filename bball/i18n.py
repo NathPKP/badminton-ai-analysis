@@ -62,6 +62,15 @@ TEXT = {
         "trip": ("move", "moves"),
         "trips_sure": ": to be confirmed on more points",
         "cap_heat": "Time spent in each place of my half during play (darker = longer).",
+        "h_bench": "Compared with professional players",
+        "bench_intro": "The same measures on two BWF singles finals filmed for TV ({n} rallies, both players), "
+                       "computed exactly like mine:",
+        "bench_head": ["Per rally (median)", "Me", "Pros"],
+        "bench_rows": ["Rally length", "Average speed", "Peak speed", "Distance per 10 s of play",
+                       "Distance to my base 1 s after being pulled out"],
+        "bench_note": "Medians per rally (hence an average speed different from the one above, over all the play). Pro "
+                      "rally ends are found automatically, about 1 s late, and a raised TV camera measures more precisely "
+                      "than a phone on the floor: orders of magnitude, not a ranking.",
         "heat_net": "net",
         "heat_base": "my baseline (camera side)",
         "h_method": "How it is measured, and the limits",
@@ -171,6 +180,16 @@ TEXT = {
         "trip": ("déplacement", "déplacements"),
         "trips_sure": " : à confirmer sur plus de points",
         "cap_heat": "Temps passé à chaque endroit de ma moitié de terrain pendant le jeu (plus foncé = plus longtemps).",
+        "h_bench": "Comparaison avec des joueurs professionnels",
+        "bench_intro": "Les mêmes mesures sur deux finales BWF de simple filmées pour la télévision ({n} échanges, "
+                       "les deux joueurs), calculées exactement comme les miennes :",
+        "bench_head": ["Par échange (médiane)", "Moi", "Pros"],
+        "bench_rows": ["Durée de l'échange", "Vitesse moyenne", "Vitesse de pointe", "Distance par 10 s de jeu",
+                       "Distance à ma base 1 s après un déplacement"],
+        "bench_note": "Médianes par échange (d'où une vitesse moyenne différente de celle ci-dessus, calculée sur tout "
+                      "le jeu). Chez les pros, la fin des échanges est trouvée automatiquement, environ 1 s trop tard, et "
+                      "une caméra TV en hauteur mesure plus finement qu'un téléphone au sol : des ordres de grandeur, pas "
+                      "un classement.",
         "heat_net": "filet",
         "heat_base": "ma ligne de fond (côté caméra)",
         "h_method": "Comment c'est mesuré, et les limites",

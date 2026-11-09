@@ -5,7 +5,10 @@ Usage: python s3_players.py <proxy.mp4> <dets.json> <calib.json> <players.json>
 
 Near player (you, "r") = the near-half person whose shorts band (48-62 % of the box height)
 is blue; nobody blue enough means a gap, never a guess. Far player ("o") = the most
-confident detection inside the far half.
+confident detection inside the far half. TV footage: --near-any takes the most confident person
+in the near half instead of the shorts colour (players change ends between games), and
+--check-view leaves out the frames that are not the main court view (close-ups, replays: the
+court drawn from the calibration does not fall on painted lines there); "v" says which.
 
 Output: {"fps": 10.0, "frames": [{"t", "r": [x, y] | null, "rb": box | null, "rt": feet out of frame,
          "rf": filled by gap fill, "o": [x, y] | null, "ob": box | null, "of": filled}, ...]}
@@ -40,6 +43,12 @@ def shorts_blue(frame, box, hue=(100, 135)):
     in_hue = (hsv[:, 0] >= lo) & (hsv[:, 0] <= hi) if lo <= hi else (hsv[:, 0] >= lo) | (hsv[:, 0] <= hi)
     blue = in_hue & (hsv[:, 1] >= 40) & (hsv[:, 2] >= 25)
     return float(blue.mean())
+
+
+def court_view(frame, H):
+    """Share of the court lines drawn from H that fall on painted lines of this frame."""
+    from s2_autocalib import line_mask, score
+    return score(H, cv2.dilate(line_mask(frame), np.ones((3, 3), np.uint8)))[1]
 
 
 def candidates(people, H, size):
@@ -127,6 +136,9 @@ def main():
     ap.add_argument("--min-blue", type=float, default=0.35, help="min share of shorts-coloured pixels in the band")
     ap.add_argument("--shorts-hue", type=int, nargs=2, default=(100, 135), metavar=("LO", "HI"),
                     help="your shorts' OpenCV hue range (0-179): blue 100 135, red 170 10, green 40 85")
+    ap.add_argument("--near-any", action="store_true", help="near player = most confident person in the near half")
+    ap.add_argument("--check-view", action="store_true", help="skip frames that are not the main court view")
+    ap.add_argument("--min-view", type=float, default=0.35, help="share of the court lines on painted lines")
     ap.add_argument("--sheet", default="work/contact/s3_players.jpg")
     ap.add_argument("--plot", default="work/figures/s3_tracks.png")
     args = ap.parse_args()
@@ -154,6 +166,10 @@ def main():
         f = frames[k]
         H = H_at(f["t"])
         rec = {"t": f["t"], "r": None, "rb": None, "rt": False, "o": None, "ob": None}
+        if args.check_view and H is not None:
+            rec["v"] = court_view(frame, H) >= args.min_view
+            if not rec["v"]:
+                H = None
         cs = candidates(f["p"], H, size) if H is not None else []
         cands.append(cs)
         if k in sheet_k:
@@ -162,8 +178,10 @@ def main():
         for c in near:
             c["blue"] = shorts_blue(frame, c["box"], args.shorts_hue)
         blue = [c for c in near if c["blue"] >= args.min_blue]
+        if args.near_any:
+            blue = [c for c in near if not c["trunc"]]
         if blue:
-            me = max(blue, key=lambda c: c["blue"])
+            me = max(blue, key=lambda c: c["score"] if args.near_any else c["blue"])
             rec["rb"], rec["rt"] = me["box"], me["trunc"]
             rec["r"] = None if me["trunc"] else me["pos"]
         far = [c for c in cs if in_half(c, FAR_Y) and not c["trunc"] and c["box"] is not rec["rb"]]
@@ -186,6 +204,8 @@ def main():
                "rf": bool(t.get("rf")),
                "o": [round(v, 3) for v in t["o"]] if t["o"] else None, "ob": t["ob"],
                "of": bool(t.get("of"))}
+        if "v" in t:
+            rec["v"] = bool(t["v"])
         out.append(rec)
     save_json({"fps": dets["fps"], "start": args.start, "frames": out}, args.out)
 
@@ -193,7 +213,7 @@ def main():
     trunc = sum(t["rt"] for t in out)
     has_o = sum(t["o"] is not None for t in out)
     print(f"{n} frames from t={args.start:.1f}s -> {args.out}")
-    print(f"you      : {has_r / n:6.1%} placed ({direct_r} by shorts colour, {has_r - direct_r} by gap fill), "
+    print(f"you      : {has_r / n:6.1%} placed ({direct_r} {'in the near half' if args.near_any else 'by shorts colour'}, {has_r - direct_r} by gap fill), "
           f"{trunc / n:.1%} feet out of frame, {sp_r} spikes dropped")
     print(f"opponent : {has_o / n:6.1%} placed, {sp_o} spikes dropped")
     for key, name in (("r", "you"), ("o", "opponent")):
