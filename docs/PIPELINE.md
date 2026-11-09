@@ -78,7 +78,10 @@ The guide uses 0.72, for a raised camera. From the floor, a bend only shrinks th
 - your position at each rally end, movement and pose by result;
 - example timestamps;
 - computed limits.
-The coaching is then written from these numbers into `coaching.json`, by a person or an AI assistant, with the evidence for each claim. [`examples/coaching.example.json`](../examples/coaching.example.json) is a complete example.
+The coaching is then written from these numbers into `coaching.json`. [`examples/coaching.example.json`](../examples/coaching.example.json) is a complete example.
+- **By rules** (`s10_coach.py`, the default `coach=auto`): five rules each look for one gap between points won and lost, and keep it only when it is large enough on a large enough sample. The rules cover the serve, the racket at the back of the court, the side where lost points end, recovery to the base, and long rallies. The strongest three become lessons, each with a freeze frame taken from the match and its numbers in `evidence`. If no rule fires, a single lesson sums up the movement.
+- **By an AI assistant**, following [CLAUDE.md](../CLAUDE.md): more specific lessons, where every claim cites its numbers and every frame is checked by eye.
+All fixed texts (report, reel, run.py messages) exist in English and French (`bball/i18n.py`, `MSG` in `run.py`); the `lang` setting picks one.
 `s10_pdf.py` builds the A4 report with reportlab. The general parts are computed: key figures, points table, movement, method. The match-specific texts come from the `pdf` section of `coaching.json`; its format is documented at the top of the script.
 
 ### 11. Reel: `s11_video.py`
@@ -88,7 +91,10 @@ The reel is 1080×1920, with a score bar, the match video, the mini map and capt
 
 - **One folder per analysis**: `analyses/<video date>_<name>/` with `analysis.json` (source video and settings) and `.pipeline.json` (state).
 - **Incremental**: each stage records the sha1 of its inputs, its command line and the settings it reads from `analysis.json`. A stage runs again when one of these changed, when an output is missing, or when it failed or was interrupted last time. Changes propagate: a corrected `review.json` reruns stages 4, 6, 7, 8, 9 and 10, but not 5 if `serves.json` comes out identical.
-- **Manual gates**: calibration, `review.json`, score contradictions, and `coaching.json`. The last one is asked again whenever `report.json` changes after it was written, unless it is edited or `--accept coaching` is given.
+- **Manual gates**: calibration, `review.json` and score contradictions, plus `coaching.json` with `coach=ai`.
+  - With `coach=ai`, coaching.json is asked for again whenever `report.json` changes after it was written, unless it is edited or `--accept coaching` is given.
+  - With `coach=auto`, the rules rewrite it instead, as long as nobody has edited the file.
+- **`doctor`** checks Python, the packages, ffmpeg, the models, the fonts and write access, and says how to fix what fails.
 - **History**: a result file is copied to `history/<date-time>/` before it is replaced, and so is every version of `calib.json`, `review.json` and `coaching.json`. A copy in history is never overwritten.
 
 ## Lessons learned on floor-level footage

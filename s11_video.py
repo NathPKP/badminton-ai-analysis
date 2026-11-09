@@ -1,11 +1,12 @@
 """Stage 11 (optional): vertical highlight reel with overlays, mini map and a coach voice-over.
 
-Usage: python s11_video.py <work dir> <out.mp4> [--speed 1.2] [--voice ff_siwis] [--models models]
+Usage: python s11_video.py <analysis dir> <out.mp4> [--lang en|fr] [--speed 1.3] [--voice af_heart] [--models models]
 
 Layout (1080x1920): score bar / match video with foot rings, trails, skeleton and name tags /
 top-down mini map with speeds / captions. Rallies are cut from serve to rally end (dead time
 removed) and played at --speed; after the rallies named in coaching.json the video freezes on
-the lesson frames while the coach (Kokoro TTS, local) explains. Reads from the work dir:
+the lesson frames while the coach (Kokoro TTS, local) explains. On-screen texts and the voice follow
+--lang (default: the analysis' language; texts in bball/i18n.py). Reads from the analysis dir:
 proxy.mp4, players.json, calib.json, points.json, pose_frames.json, coaching.json.
 """
 import argparse
@@ -21,6 +22,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from bball import court
 from bball.fonts import font
+from bball.i18n import VOICE, Text, analysis_lang
 from bball.io import load_json
 from bball.track import positions, rolling_median
 from bball.video import player_zoom
@@ -34,6 +36,13 @@ VID_Y, VID_H = 230, 609                          # match video band
 MAP_Y = VID_Y + VID_H + 40
 CAP_Y = 1700
 FONT_R, FONT_B, FONT_D = font("regular"), font("bold"), font("display")
+T = Text("en")
+
+
+def set_lang(lang):
+    """Language of the on-screen texts (also used by s10_pdf for its illustrations)."""
+    global T
+    T = Text(lang)
 _fonts = {}
 
 
@@ -142,7 +151,7 @@ def draw_video(frame, tr, src_t, scale, trail_s=1.5):
                 cv2.line(img, tuple((sk[a, :2] * scale).astype(int)), tuple((sk[b, :2] * scale).astype(int)),
                          (255, 255, 255), 3, cv2.LINE_AA)
     tags = []
-    for key, col, name in (("r", YOU, "TOI"), ("o", OPP, "ADV")):
+    for key, col, name in (("r", YOU, T("you_tag")), ("o", OPP, T("opp_tag"))):
         pts = []
         for dt in np.arange(-trail_s, 0.001, 0.1):
             p, _ = tr.at(key, src_t + dt)
@@ -192,7 +201,7 @@ def draw_map(canvas, tr, src_t, x0, y0, ppm=56, trail_s=2.0):
 
 def score_bar(canvas, items, score, sub, banner=None):
     you, opp = score.split("-")
-    items += [("TOI", (300, 70), 40, YOU, FONT_B, "mm"), ("ADV", (780, 70), 40, OPP, FONT_B, "mm"),
+    items += [(T("you_tag"), (300, 70), 40, YOU, FONT_B, "mm"), (T("opp_tag"), (780, 70), 40, OPP, FONT_B, "mm"),
               (f"{you}  –  {opp}", (540, 78), 92, INK, FONT_D, "mm"), (sub, (540, 165), 32, INK2, FONT_R, "mm")]
     if banner:
         txt, col = banner
@@ -247,7 +256,7 @@ def card(title, lines, sub=None, img=None, img2=None, caps=(None, None), stat=No
         y += 60 + 58 * len(wrap(stat, FONT_B, 46, W - 140))
     if fix:
         cv2.rectangle(canvas, (60, y), (W - 60, y + 130), (40, 40, 38), -1)
-        items.append(("À travailler", (540, y + 35), 30, INK2, FONT_R, "mm"))
+        items.append((T("to_work"), (540, y + 35), 30, INK2, FONT_R, "mm"))
         items.append((fix, (540, y + 88), 36, INK, FONT_B, "mm"))
     for i, line in enumerate(lines):
         items.append((line, (540, 420 + i * 70), 44, INK, FONT_R, "mm"))
@@ -256,12 +265,12 @@ def card(title, lines, sub=None, img=None, img2=None, caps=(None, None), stat=No
     return canvas, items
 
 
-def tts(lines, models, voice, speed):
+def tts(lines, models, voice, speed, lang):
     from kokoro_onnx import Kokoro
     k = Kokoro(str(models / "kokoro-v1.0.onnx"), str(models / "voices-v1.0.bin"))
     out = {}
     for s in lines:
-        a, sr = k.create(s, voice=voice, speed=speed, lang="fr-fr")
+        a, sr = k.create(s, voice=voice, speed=speed, lang=lang)
         out[s] = (np.asarray(a, np.float32), sr)
         _vlen[s] = len(a) / sr
     return out
@@ -274,11 +283,14 @@ def main():
     ap.add_argument("--speed", type=float, default=1.3, help="rally playback speed")
     ap.add_argument("--pre", type=float, default=0.4, help="seconds kept before the serve")
     ap.add_argument("--post", type=float, default=0.5, help="seconds kept after the rally end")
-    ap.add_argument("--voice", default="ff_siwis")
+    ap.add_argument("--lang", choices=("en", "fr"), help="default: the analysis' language")
+    ap.add_argument("--voice", help="Kokoro voice (default: af_heart in English, ff_siwis in French)")
     ap.add_argument("--voice-speed", type=float, default=1.1)
     ap.add_argument("--models", default="models")
     args = ap.parse_args()
     w = Path(args.work)
+    set_lang(args.lang or analysis_lang(w))
+    voice, voice_lang = VOICE[T.lang]
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
 
     tr = Tracks(w)
@@ -291,7 +303,7 @@ def main():
 
     voices = [coach["intro"]["voice"]] + [l_["voice"] for l_ in coach["lessons"]] + [coach["outro"]["voice"]]
     print("synthesising the voice-over...")
-    audio = tts(voices, Path(args.models), args.voice, args.voice_speed)
+    audio = tts(voices, Path(args.models), args.voice or voice, args.voice_speed, voice_lang)
     sr = next(iter(audio.values()))[1]
 
     def src_frame(t):
@@ -341,7 +353,7 @@ def main():
                     if f.get("mark_px"):               # e.g. where the shuttle lies (proxy pixels)
                         mx, my = (np.array(f["mark_px"]) * scale).astype(int)
                         cv2.circle(im, (mx, my), 30, (0, 230, 255), 4, cv2.LINE_AA)
-                        im = text(im, [(f.get("mark_label", "volant"), (mx, my - 42), 32, (0, 230, 255), FONT_B, "ms", 5)])
+                        im = text(im, [(f.get("mark_label", T("mark")), (mx, my - 42), 32, (0, 230, 255), FONT_B, "ms", 5)])
                     fr.append((im, f["caption"]))
                     if f.get("zoom"):                  # 16:9 close-up on one player (the far one is tiny)
                         b = tr.box_near(f["zoom"], f["t"])
@@ -367,25 +379,25 @@ def main():
                     items = []
                     done = p["r1"] is not None and st >= p["r1"] - 0.25
                     score = p["after"] if done and p["after"] else p["before"]
-                    who = "toi" if p["server"] == "R" else "l'adversaire"
+                    who = T("bar_you") if p["server"] == "R" else T("bar_opp")
                     el = max(0.0, min(st, p["r1"] or st) - p["r0"])
                     banner = None
                     if done and p["winner"]:
-                        banner = ("POINT POUR TOI", YOU) if p["winner"] == "R" else ("POINT POUR L'ADVERSAIRE", OPP)
-                    score_bar(canvas, items, score, f"Point {p['n']} · service : {who} · échange {el:.1f} s", banner)
+                        banner = (T("point_you"), YOU) if p["winner"] == "R" else (T("point_opp"), OPP)
+                    score_bar(canvas, items, score, T("bar", n=p["n"], who=who, el=T.num(el)), banner)
                     items.append((f"x{args.speed:g}", (W - 30, VID_Y + 30), 30, INK2, FONT_B, "rm"))
                     draw_map(canvas, tr, st, 120, MAP_Y)
                     vr = tr.at("r", st)[1]
                     sx = 120 + court.WIDTH * 56 + 70
-                    items += [("Ta vitesse", (sx, MAP_Y + 40), 34, INK2, FONT_R, "lm"),
-                              (f"{vr:.1f} m/s" if vr is not None and np.isfinite(vr) else "–", (sx, MAP_Y + 95), 60, YOU, FONT_D, "lm"),
-                              ("Durée de l'échange", (sx, MAP_Y + 190), 34, INK2, FONT_R, "lm"),
-                              (f"{el:.1f} s", (sx, MAP_Y + 245), 60, INK, FONT_D, "lm"),
-                              ("+ = ta base", (sx, MAP_Y + 340), 30, INK2, FONT_R, "lm"),
-                              ("profondeur adverse", (sx, CAP_Y - 110), 26, INK2, FONT_R, "lm"),
-                              ("approximative", (sx, CAP_Y - 78), 26, INK2, FONT_R, "lm")]
+                    items += [(T("your_speed"), (sx, MAP_Y + 40), 34, INK2, FONT_R, "lm"),
+                              (f"{T.num(vr)} m/s" if vr is not None and np.isfinite(vr) else "–", (sx, MAP_Y + 95), 60, YOU, FONT_D, "lm"),
+                              (T("rally_len"), (sx, MAP_Y + 190), 34, INK2, FONT_R, "lm"),
+                              (f"{T.num(el)} s", (sx, MAP_Y + 245), 60, INK, FONT_D, "lm"),
+                              (T("your_base"), (sx, MAP_Y + 340), 30, INK2, FONT_R, "lm"),
+                              (T("opp_depth")[0], (sx, CAP_Y - 110), 26, INK2, FONT_R, "lm"),
+                              (T("opp_depth")[1], (sx, CAP_Y - 78), 26, INK2, FONT_R, "lm")]
                     if p["rdur"] is None and st > t1 - 1.0:
-                        captions(items, "La vidéo s'arrête pendant cet échange.")
+                        captions(items, T("video_stops"))
                 elif kind == "intro":
                     canvas = np.full((H, W, 3), BG, np.uint8)
                     canvas[VID_Y + 300:VID_Y + 300 + bg.shape[0]] = bg
@@ -406,14 +418,14 @@ def main():
                     canvas, items = card(coach["outro"]["title"], [f"• {x}" for x in coach["outro"]["items"]],
                                          sub=coach["outro"]["note"])
                     last = [p for p in pts if p["after"]][-1]["after"].split("-")
-                    items += [("Score de la vidéo", (540, 760), 36, INK2, FONT_R, "mm"),
-                              ("TOI", (300, 900), 44, YOU, FONT_B, "mm"), ("ADV", (780, 900), 44, OPP, FONT_B, "mm"),
+                    items += [(T("video_score"), (540, 760), 36, INK2, FONT_R, "mm"),
+                              (T("you_tag"), (300, 900), 44, YOU, FONT_B, "mm"), (T("opp_tag"), (780, 900), 44, OPP, FONT_B, "mm"),
                               (f"{last[0]}  –  {last[1]}", (540, 905), 130, INK, FONT_D, "mm"),
-                              ("Analyse 100 % locale et gratuite", (540, 1500), 30, INK2, FONT_R, "mm")]
+                              (T("local"), (540, 1500), 30, INK2, FONT_R, "mm")]
                     if not pts[-1]["r1"]:
-                        items.append((f"(la vidéo s'arrête pendant le {pts[-1]['n']}e échange)", (540, 1020), 30, INK2, FONT_R, "mm"))
+                        items.append((T("reel_unfinished", n=pts[-1]["n"]), (540, 1020), 30, INK2, FONT_R, "mm"))
                     elif not pts[-1]["winner"]:
-                        items.append(("(résultat du dernier échange inconnu)", (540, 1020), 30, INK2, FONT_R, "mm"))
+                        items.append((T("reel_unknown"), (540, 1020), 30, INK2, FONT_R, "mm"))
                 if voice and 0.4 <= tt <= 0.4 + voice_len(voice):
                     captions(items, sentence_at(voice, tt - 0.4))
                 ff.stdin.write(text(canvas, items).tobytes())

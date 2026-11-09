@@ -1,19 +1,20 @@
-"""Stage 10 (written version): a PDF report to send by e-mail, in French, first person (the player's report).
+"""Stage 10 (written version): a PDF report to send by e-mail, in the first person (the player's report).
 
-Usage: python s10_pdf.py <analysis dir> <out.pdf> [--date "27 octobre 2026"]
+Usage: python s10_pdf.py <analysis dir> <out.pdf> [--lang en|fr] [--date "9 November 2026"]
 
 Reads report.json, score.json, coaching.json and the tracks; draws the illustrations with the same
-overlays as the video (s11_video.draw_video). Everything specific to one match (lesson texts, image
-times, how some points ended) comes from the optional "pdf" section of coaching.json:
-  "pdf": {"summary": ["<b>Mon service</b> : ...", ...],
+overlays as the video (s11_video.draw_video). The fixed texts are in bball/i18n.py (--lang; default:
+the analysis' language). Everything specific to one match (lesson texts, image times, how some points
+ended) comes from the optional "pdf" section of coaching.json:
+  "pdf": {"summary": ["<b>My serve</b>: ...", ...],
           "lessons": [{"title", "constat", "travail", "caption", "width_cm" (opt.),
                        "images": [{"t", "zoom": "o"|"r" (opt.), "mark_px": [x, y] (opt.), "mark_label"}]}],
-          "endings": {"1": "sa faute de service", ...}, "uncertain": [6],
-          "camera": "téléphone posé au sol derrière ma ligne de fond", "limits": "texte"}
-Without it, the lessons of the video (title / stat / fix / freeze) are used as they are.
+          "endings": {"1": "his serve fault", ...}, "uncertain": [6],
+          "camera": "phone on the floor behind my baseline", "limits": "text"}
+("constat" = the finding, "travail" = what to work on.) Without it, the lessons of the video
+(title / stat / fix / freeze) are used as they are.
 """
 import argparse
-import datetime
 from pathlib import Path
 
 import cv2
@@ -28,7 +29,9 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table,
                                 TableStyle)
 
+import s11_video
 from bball.fonts import font
+from bball.i18n import Text, analysis_lang
 from bball.io import load_json
 from bball.video import player_zoom
 from s11_video import Tracks, draw_video, text, FONT_B
@@ -51,27 +54,11 @@ S = {
     "cell": ParagraphStyle("cell", fontName="Arial", fontSize=8.5, leading=10.5, textColor=INK),
     "cellb": ParagraphStyle("cellb", fontName="Arial-Bold", fontSize=8.5, leading=10.5, textColor=INK),
 }
-MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre",
-          "novembre", "décembre"]
-NUMBERS = ["Aucun", "Un", "Deux", "Trois", "Quatre", "Cinq", "Six"]
-
-# report.json speaks to the player ("ta faute"); this report is in the first person
-FIRST_PERSON = {"sa faute (volant dehors ou service)": "sa faute (volant dehors)",
-                "son coup gagnant (ou ta faute au filet)": "son coup gagnant (ou ma faute au filet)",
-                "ton coup gagnant (ou sa faute au filet)": "mon coup gagnant (ou sa faute au filet)",
-                "ta frappe sortie": "ma frappe sortie"}
-
-
-def fr(x, d=1):
-    return f"{x:.{d}f}".replace(".", ",")
+T = Text("en")
 
 
 def mmss(t):
     return f"{int(t // 60)}:{int(t % 60):02d}"
-
-
-def plural(n, words):
-    return f"{n} {words}" if n <= 1 else f"{n} " + " ".join(w + "s" for w in words.split())
 
 
 def save_img(img, path):
@@ -92,7 +79,7 @@ def frame_with_overlays(cap, tr, t, scale, mark=None, label=None):
     if mark:
         mx, my = (np.array(mark) * scale).astype(int)
         cv2.circle(im, (mx, my), 30, (0, 230, 255), 4, cv2.LINE_AA)
-        im = text(im, [(label or "volant", (mx, my - 42), 32, (0, 230, 255), FONT_B, "ms", 5)])
+        im = text(im, [(label or T("mark"), (mx, my - 42), 32, (0, 230, 255), FONT_B, "ms", 5)])
     return im, raw
 
 
@@ -137,8 +124,8 @@ def heatmap(tr, pts, path):
         ax.plot([x1, x2], [y1, y2], color="#52514e", lw=0.8)
     ax.plot([0, 6.1], [6.7, 6.7], color="#0b0b0b", lw=2.2)
     ax.plot(*BASE, "+", color="#0b0b0b", ms=11, mew=1.6)
-    ax.text(3.05, 6.85, "filet", ha="center", va="bottom", fontsize=8, color="#52514e")
-    ax.text(3.05, -0.75, "ma ligne de fond (côté caméra)", ha="center", va="center", fontsize=8, color="#52514e")
+    ax.text(3.05, 6.85, T("heat_net"), ha="center", va="bottom", fontsize=8, color="#52514e")
+    ax.text(3.05, -0.75, T("heat_base"), ha="center", va="center", fontsize=8, color="#52514e")
     ax.set_xlim(-0.6, 6.7)
     ax.set_ylim(-1.0, 7.2)
     ax.set_aspect("equal")
@@ -165,18 +152,18 @@ def pdf_section(coach):
     return pdf
 
 
-def count_word(n):
-    return NUMBERS[n] if n < len(NUMBERS) else str(n)
-
-
 def main():
+    global T
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("work")
     ap.add_argument("out")
-    today = datetime.date.today()
-    ap.add_argument("--date", default=f"{today.day} {MONTHS[today.month - 1]} {today.year}")
+    ap.add_argument("--lang", choices=("en", "fr"), help="default: the analysis' language")
+    ap.add_argument("--date", help="report date as printed (default: today)")
     args = ap.parse_args()
     w = Path(args.work)
+    T = Text(args.lang or analysis_lang(w))
+    s11_video.set_lang(T.lang)
+    date = args.date or T.date()
     img_dir = w / "report_img"
     img_dir.mkdir(exist_ok=True)
 
@@ -195,145 +182,129 @@ def main():
     unfinished = rows[-1]["n"] if rows[-1].get("rdur") is None else None
     unknown = rows[-1]["winner"] is None and not unfinished
     meta = load_json(w / "analysis.json") if (w / "analysis.json").exists() else {}
-    accepted = meta.get("params", {}).get("accept_score") or []
+    params = meta.get("params", {})
+    accepted = params.get("accept_score") or []
 
     # ---- document
-    story = [Paragraph("Analyse vidéo de mon match de badminton", S["title"]),
-             Paragraph(f"Simple · {len(done)} échanges filmés ({int(video_s // 60)} min {int(video_s % 60):02d} de vidéo) · "
-                       f"rapport du {args.date} · analyse automatique par IA, faite en local", S["sub"])]
+    story = [Paragraph(T("title"), S["title"]),
+             Paragraph(T("subtitle", n=len(done), min=int(video_s // 60), sec=int(video_s % 60), date=date), S["sub"])]
 
     you, opp = last.split("-")
     durs = [r["rdur"] for r in done]
     srv_you, srv_opp = sm["on_your_serve"], sm["on_his_serve"]
-    stop = (f" (la vidéo s'arrête pendant le {unfinished}<super>e</super> échange)" if unfinished else
-            " (résultat du dernier échange inconnu)" if unknown else "")
-    key = [[Paragraph("<b>Score sur la vidéo</b>", S["cell"]), Paragraph(f"<b>{you} – {opp}</b>{stop}", S["cell"])],
-           [Paragraph("<b>Durée des échanges</b>", S["cell"]), Paragraph(f"médiane {fr(sm['rally_s']['median'])} s (de {fr(min(durs))} à {fr(max(durs))} s)", S["cell"])],
-           [Paragraph("<b>Ma vitesse en jeu</b>", S["cell"]), Paragraph(f"{fr(mv['all']['avg_speed'], 2)} m/s en moyenne, pointe à {fr(mv['all']['peak_speed'], 1)} m/s ; "
-                                                                        f"{fr(mv['all']['distance_m'], 0)} m parcourus en {fr(mv['all']['live_s'], 0)} s de jeu effectif", S["cell"])],
-           [Paragraph("<b>Au service</b>", S["cell"]), Paragraph(f"quand je sers : {plural(srv_you['won'], 'point gagné')} sur "
-                                                                 f"{srv_you['won'] + srv_you['lost']} ; quand il sert : "
-                                                                 f"{srv_opp['won']} sur {srv_opp['won'] + srv_opp['lost']}", S["cell"])]]
+    stop = T("stop_unfinished", n=unfinished) if unfinished else T("stop_unknown") if unknown else ""
+    a = mv["all"]
+    key = [[Paragraph(f"<b>{T('k_score')}</b>", S["cell"]), Paragraph(f"<b>{you} – {opp}</b>{stop}", S["cell"])],
+           [Paragraph(f"<b>{T('k_rally')}</b>", S["cell"]),
+            Paragraph(T("v_rally", med=T.num(sm["rally_s"]["median"]), lo=T.num(min(durs)), hi=T.num(max(durs))), S["cell"])],
+           [Paragraph(f"<b>{T('k_speed')}</b>", S["cell"]),
+            Paragraph(T("v_speed", avg=T.num(a["avg_speed"], 2), peak=T.num(a["peak_speed"], 1),
+                        dist=T.num(a["distance_m"], 0), live=T.num(a["live_s"], 0)), S["cell"])],
+           [Paragraph(f"<b>{T('k_serve')}</b>", S["cell"]),
+            Paragraph(T("v_serve", won=T.plural(srv_you["won"], "point_won"), n1=srv_you["won"] + srv_you["lost"],
+                        w2=srv_opp["won"], n2=srv_opp["won"] + srv_opp["lost"]), S["cell"])]]
     t = Table(key, colWidths=[4.2 * cm, 12.8 * cm])
     t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), PANEL), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                            ("LINEBELOW", (0, 0), (-1, -2), 0.5, colors.white), ("TOPPADDING", (0, 0), (-1, -1), 5),
                            ("BOTTOMPADDING", (0, 0), (-1, -1), 5), ("LEFTPADDING", (0, 0), (-1, -1), 8)]))
     n_sum = len(pdf["summary"])
-    story += [t, Spacer(1, 8),
-              Paragraph("En bref", S["h1"]),
-              Paragraph(f"{count_word(n_sum)} point{'s' if n_sum > 1 else ''} à travailler "
-                        f"ressort{'ent' if n_sum > 1 else ''} de l'analyse :", S["p"])]
+    story += [t, Spacer(1, 8), Paragraph(T("h_summary"), S["h1"]),
+              Paragraph(T.pick(n_sum, "summary_intro", N=T.count(n_sum)), S["p"])]
     story += [Paragraph(f"{i}. {x}", S["p"]) for i, x in enumerate(pdf["summary"], 1)]
-    few = f"Sur {len(done)} échanges seulement, ce sont des tendances, pas des certitudes. " if len(done) < 40 else ""
-    story.append(Paragraph(few + "Chaque constat ci-dessous renvoie à un moment précis de la vidéo (minute:seconde) "
-                                 "pour pouvoir le vérifier.", S["small"]))
+    few = T("few", n=len(done)) if len(done) < 40 else ""
+    story.append(Paragraph(few + T("each_ref"), S["small"]))
 
     # lessons
     n_les = len(pdf["lessons"])
-    story.append(Paragraph(f"Les {count_word(n_les).lower()} enseignements" if n_les > 1 else "L'enseignement", S["h1"]))
+    story.append(Paragraph(T.pick(n_les, "h_lessons", n=T.count(n_les).lower()), S["h1"]))
     for i, ls in enumerate(pdf["lessons"], 1):
         path = lesson_image(cap, tr, scale, ls["images"], img_dir / f"lesson{i}.jpg")
         single = len(ls["images"]) == 1 and not ls["images"][0].get("zoom")
         story.append(KeepTogether([
             Paragraph(ls["title"], S["h2"]),
-            Paragraph(f"<b>Constat.</b> {ls['constat']}", S["p"]),
-            Paragraph(f"<b>À travailler.</b> {ls['travail']}", S["p"]),
+            Paragraph(f"<b>{T('finding')}</b> {ls.get('constat') or ls['finding']}", S["p"]),
+            Paragraph(f"<b>{T('work')}</b> {ls.get('travail') or ls['work']}", S["p"]),
             pic(path, ls.get("width_cm", 11 if single else 17)), Paragraph(ls["caption"], S["cap"])]))
 
     # points table
-    who = {"R": "moi", "O": "adv.", None: "?"}
-    head = ["#", "Vidéo", "Service", "Score", "Durée", "Gagné par", "Comment le point se termine"]
-    data = [[Paragraph(f"<b>{h}</b>", S["cell"]) for h in head]]
+    who = T("who")
+    data = [[Paragraph(f"<b>{h}</b>", S["cell"]) for h in T("table_head")]]
     endings = {int(k): v for k, v in pdf.get("endings", {}).items()}
     for r in rows:
-        ending = endings.get(r["n"]) or FIRST_PERSON.get(r.get("ending"), r.get("ending", r.get("note", "?")))
-        if r["n"] in pdf.get("uncertain", []) and r.get("ending"):
-            ending += " (incertain)"
+        ending = (endings.get(r["n"]) or T("end_first").get(r.get("ending_code"))
+                  or r.get("ending") or r.get("note") or "?")
+        if r["n"] in pdf.get("uncertain", []) and r.get("ending_code"):
+            ending += T("uncertain")
         data.append([Paragraph(str(r["n"]), S["cell"]), Paragraph(mmss(r["t"]), S["cell"]),
                      Paragraph(who[r["server"]], S["cell"]),
                      Paragraph(f"{r['before']} → {r['after'] or '?'}", S["cell"]),
-                     Paragraph(f"{fr(r['rdur'])} s" if r.get("rdur") else "—", S["cell"]),
+                     Paragraph(f"{T.num(r['rdur'])} s" if r.get("rdur") else "—", S["cell"]),
                      Paragraph(f"<b>{who[r['winner']]}</b>" if r["winner"] else "—", S["cell"]),
                      Paragraph(ending, S["cell"])])
-    tb = Table(data, colWidths=[0.8 * cm, 1.3 * cm, 1.5 * cm, 1.9 * cm, 1.4 * cm, 1.8 * cm, 8.3 * cm], repeatRows=1)
+    tb = Table(data, colWidths=[0.8 * cm, 1.3 * cm, 1.5 * cm, 1.9 * cm, 1.6 * cm, 1.8 * cm, 8.1 * cm], repeatRows=1)
     style = [("LINEBELOW", (0, 0), (-1, 0), 0.8, INK), ("LINEBELOW", (0, 1), (-1, -1), 0.3, RULE),
              ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]
     for i, r in enumerate(rows, 1):
         if r["winner"]:
             style.append(("TEXTCOLOR", (5, i), (5, i), ME if r["winner"] == "R" else OPP))
     tb.setStyle(TableStyle(style))
-    story += [Paragraph("Le match point par point", S["h1"]), tb,
-              Paragraph("Score : moi – adversaire. « Comment le point se termine » combine le gagnant (celui qui sert ensuite) et le côté "
-                        "où le volant est tombé : par exemple, un volant de mon côté sur un point perdu = son coup gagnant ou ma faute au filet.",
-                        S["small"])]
+    story += [Paragraph(T("h_table"), S["h1"]), tb, Paragraph(T("table_note"), S["small"])]
 
     # movement
     heat, q = heatmap(tr, pts, img_dir / "heat.png")
-    a, won, lost = mv["all"], mv.get("you_won") or {}, mv.get("you_lost") or {}
-    speed = f"Vitesse moyenne en jeu : <b>{fr(a['avg_speed'], 2)} m/s</b>"
+    won, lost = mv.get("you_won") or {}, mv.get("you_lost") or {}
+    speed = T("speed", v=T.num(a["avg_speed"], 2))
     if 0.8 <= a["avg_speed"] <= 1.2:
-        speed += ", la valeur habituelle en simple (environ 1 m/s)"
+        speed += T("speed_usual")
     if won.get("avg_speed") is None or lost.get("avg_speed") is None:
         speed += "."
     elif abs(won["avg_speed"] - lost["avg_speed"]) < 0.05:
-        speed += ", identique sur les points gagnés et perdus."
+        speed += T("speed_same")
     else:
-        speed += f" ({fr(won['avg_speed'], 2)} m/s sur les points gagnés, {fr(lost['avg_speed'], 2)} sur les points perdus)."
-    zones = f"Je passe {fr(100 * a['back_share'], 0)} % du temps de jeu au fond du court et "
-    zones += (f"presque jamais devant la ligne de service court ({fr(100 * a['front_share'], 0)} %)." if a["front_share"] < 0.05 else
-              f"{fr(100 * a['front_share'], 0)} % devant la ligne de service court.")
+        speed += T("speed_diff", w=T.num(won["avg_speed"], 2), l=T.num(lost["avg_speed"], 2))
+    zones = T("zones", b=T.num(100 * a["back_share"], 0))
+    zones += (T("front_rare", f=T.num(100 * a["front_share"], 0)) if a["front_share"] < 0.05 else
+              T("front", f=T.num(100 * a["front_share"], 0)))
     if len(q):
         from s7_movement import BASE
         dx, dy = np.median(q[:, 0]) - BASE[0], np.median(q[:, 1]) - BASE[1]
-        across = "le centre" if abs(dx) < 0.5 else "le côté gauche" if dx < 0 else "le côté droit"
-        depth = "un peu en arrière de ma base" if dy < -0.2 else "un peu en avant de ma base" if dy > 0.2 else "autour de ma base"
-        zones += f" Ma zone principale est {across}, {depth} (+)."
+        across = T("across")["center" if abs(dx) < 0.5 else "left" if dx < 0 else "right"]
+        depth = T("depth")["behind" if dy < -0.2 else "ahead" if dy > 0.2 else "on"]
+        zones += T("zone_main", across=across, depth=depth)
     move = [Paragraph(speed, S["p"]), Paragraph(zones, S["p"])]
     if won.get("median_dist_1s_after_trip") is not None and lost.get("median_dist_1s_after_trip") is not None:
-        trips = (f"{plural(won['trips'], 'déplacement')} de chaque côté" if won["trips"] == lost["trips"] else
-                 f"{plural(lost['trips'], 'déplacement')} sur les points perdus, {won['trips']} sur les points gagnés")
-        sure = " : à confirmer sur plus de points" if min(won["trips"], lost["trips"]) < 10 else ""
-        move.append(Paragraph(f"Une seconde après avoir été déplacé loin de ma base, je suis encore à {fr(lost['median_dist_1s_after_trip'], 1)} m "
-                              f"de celle-ci sur les points perdus, contre {fr(won['median_dist_1s_after_trip'], 1)} m sur les points gagnés "
-                              f"({trips}{sure}).", S["p"]))
+        trips = (T("trips_same", n=T.plural(won["trips"], "trip")) if won["trips"] == lost["trips"] else
+                 T("trips_diff", l=T.plural(lost["trips"], "trip"), w=won["trips"]))
+        sure = T("trips_sure") if min(won["trips"], lost["trips"]) < 10 else ""
+        move.append(Paragraph(T("recovery", l=T.num(lost["median_dist_1s_after_trip"], 1),
+                                w=T.num(won["median_dist_1s_after_trip"], 1), trips=trips, sure=sure), S["p"]))
     story.append(KeepTogether([
-        Paragraph("Déplacements", S["h1"]),
+        Paragraph(T("h_move"), S["h1"]),
         Table([[pic(heat, 6.3), move]], colWidths=[6.8 * cm, 10.2 * cm], style=[("VALIGN", (0, 0), (-1, -1), "TOP")]),
-        Paragraph("Temps passé à chaque endroit de ma moitié de terrain pendant le jeu (plus foncé = plus longtemps).", S["cap"])]))
+        Paragraph(T("cap_heat"), S["cap"])]))
 
     # method
-    n_srv, bad = len(score["points"]), len(score["contradictions"])
-    contra = score["contradictions"]
-    if not bad:
-        check = f"{n_srv} services sur {n_srv} cohérents"
-    elif set(contra) <= set(accepted):
-        check = (f"{n_srv - bad} services sur {n_srv} cohérents ; "
-                 + (f"le service {contra[0]} est une exception vérifiée" if bad == 1 else
-                    f"les services {', '.join(map(str, contra))} sont des exceptions vérifiées") + " : faute ou let")
-    else:
-        check = (f"{n_srv - bad} services sur {n_srv} cohérents ; "
-                 + (f"le service {contra[0]} est à revérifier" if bad == 1 else
-                    f"les services {', '.join(map(str, contra))} sont à revérifier"))
-    limits = pdf.get("limits") or (" ; ".join(rep["limits"]) + ".")
-    story += [Paragraph("Comment c'est mesuré, et les limites", S["h1"]),
-              Paragraph(f"La vidéo ({pdf.get('camera', 'téléphone posé au sol derrière ma ligne de fond' if meta.get('params', {}).get('camera', 'sol') == 'sol' else 'caméra surélevée derrière ma ligne de fond')}) est analysée image par image : "
-                        "détection des joueurs 10 fois par seconde, calibrage du terrain pour passer en mètres, posture avec un "
-                        "modèle de squelette, services et fins d'échange relus image par image, score reconstitué avec la règle "
-                        f"« le gagnant sert » et contrôlé par la règle du côté de service ({check}). Tout tourne sur un PC, "
-                        "avec des outils gratuits.", S["p"]),
-              Paragraph(f"<b>Limites.</b> {limits[0].upper() + limits[1:]}", S["p"])]
+    n_srv, contra = len(score["points"]), score["contradictions"]
+    ok, listed = n_srv - len(contra), ", ".join(map(str, contra))
+    check = (T("check_ok", n=n_srv) if not contra else
+             T.pick(len(contra), "check_accepted" if set(contra) <= set(accepted) else "check_bad", ok=ok, n=n_srv, list=listed))
+    limits = pdf.get("limits") or (T("limit_sep").join(rep["limits"]) + ".")
+    camera = pdf.get("camera") or T("camera_haute" if params.get("camera") == "haute" else "camera_sol")
+    story += [Paragraph(T("h_method"), S["h1"]),
+              Paragraph(T("method", camera=camera, check=check), S["p"]),
+              Paragraph(f"<b>{T('limits')}</b> {limits[0].upper() + limits[1:]}", S["p"])]
 
     def footer(c, doc):
         c.saveState()
         c.setFont("Arial", 8)
         c.setFillColor(INK2)
-        c.drawString(2 * cm, 1.2 * cm, "Analyse vidéo de mon match de badminton")
-        c.drawRightString(A4[0] - 2 * cm, 1.2 * cm, f"page {doc.page}")
+        c.drawString(2 * cm, 1.2 * cm, T("title"))
+        c.drawRightString(A4[0] - 2 * cm, 1.2 * cm, T("page", n=doc.page))
         c.restoreState()
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     doc = SimpleDocTemplate(args.out, pagesize=A4, leftMargin=2 * cm, rightMargin=2 * cm, topMargin=1.8 * cm,
-                            bottomMargin=2 * cm, title="Analyse vidéo de mon match de badminton", author="")
+                            bottomMargin=2 * cm, title=T("title"), author="")
     doc.build(story, onFirstPage=footer, onLaterPages=footer)
     print(f"-> {args.out}")
 

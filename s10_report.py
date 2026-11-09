@@ -1,10 +1,11 @@
 """Stage 10: every number in one place, split by points won vs lost and by rally length.
 
-Usage: python s10_report.py <work dir> [--out work/report.json] [--md work/report.md]
+Usage: python s10_report.py <analysis dir> [--lang en|fr] [--out report.json] [--md report.md]
 
 Reads players.json, points.json, review.json, motion.json, pose_stats.json, pose_frames.json and
-pickups.json from the work dir. The coaching itself (lessons with timestamps) is written by the AI
-from these numbers into work/coaching.json; this script only gathers and checks the evidence.
+pickups.json from the analysis dir. The coaching itself (lessons with timestamps) is written from
+these numbers into coaching.json, by an AI assistant or by s10_coach.py; this script only gathers
+and checks the evidence. Texts (report.md, endings, limits) follow --lang (bball/i18n.py).
 """
 import argparse
 from pathlib import Path
@@ -14,10 +15,14 @@ import numpy as np
 from bball import court
 from bball.io import load_json, save_json
 from bball.track import positions, rolling_median
+from bball.i18n import Text, analysis_lang
 from s7_movement import BASE, interp_gaps, moving_mean
 
-ENDING = {(True, "O"): "ton coup gagnant (ou sa faute au filet)", (True, "R"): "sa faute (volant dehors ou service)",
-          (False, "R"): "son coup gagnant (ou ta faute au filet)", (False, "O"): "ta frappe sortie"}
+# (you won?, side where the shuttle came down) -> how the point ended
+ENDING = {(True, "O"): "my_winner", (True, "R"): "his_fault", (False, "R"): "his_winner", (False, "O"): "my_out"}
+
+
+T = Text("en")
 
 
 def pct(x):
@@ -40,8 +45,11 @@ def main():
     ap.add_argument("work")
     ap.add_argument("--out", default=None)
     ap.add_argument("--md", default=None)
+    ap.add_argument("--lang", choices=("en", "fr"), help="default: the analysis' language")
     args = ap.parse_args()
     w = Path(args.work)
+    global T
+    T = Text(args.lang or analysis_lang(w))
     out_json = Path(args.out or w / "report.json")
     out_md = Path(args.md or w / "report.md")
 
@@ -59,14 +67,15 @@ def main():
     for p in pts:
         r = {k: p[k] for k in ("n", "t", "server", "side", "before", "after", "winner", "r1", "rdur")}
         if p["rdur"] is None:
-            r["note"] = "la vidéo s'arrête pendant l'échange"
+            r["note"] = T("note_unfinished")
             rows.append(r)
             continue
         r["bucket"] = bucket(p["rdur"])
         eye, auto = p.get("shuttle"), picks.get(p["n"], {}).get("shuttle")
-        r["shuttle"], r["shuttle_source"] = (eye, "lecture visuelle") if eye else (auto, "ramassage détecté") if auto else (None, None)
+        r["shuttle"], r["shuttle_source"] = (eye, "eye") if eye else (auto, "pickup") if auto else (None, None)
         if r["shuttle"] and r["winner"]:
-            r["ending"] = ENDING[(r["winner"] == "R", r["shuttle"])]
+            r["ending_code"] = ENDING[(r["winner"] == "R", r["shuttle"])]
+            r["ending"] = T("end_second")[r["ending_code"]]
         k = int(np.argmin(np.abs(t - (p["r1"] - 0.25))))
         if not np.isnan(P[k, 0]):
             r["you_at_end"] = {"x": round(float(P[k, 0]), 2), "depth": round(float(P[k, 1]), 2),
@@ -121,21 +130,20 @@ def main():
     meta = load_json(w / "analysis.json") if (w / "analysis.json").exists() else {}
     limits = []
     if meta.get("params", {}).get("camera", "sol") == "sol":
-        limits.append("profondeur de l'adversaire biaisée (caméra au sol) : ses zones ne sont pas utilisées")
+        limits.append(T("limit_depth"))
     if len(done) < 40:
-        limits.append(f"{len(done)} échanges seulement : des tendances, pas des certitudes")
-    guessed = [r["n"] for r in done if r.get("shuttle_source") == "ramassage détecté"]
+        limits.append(T("limit_few", n=len(done)))
+    guessed = [r["n"] for r in done if r.get("shuttle_source") == "pickup"]
     if guessed:
-        limits.append("côté du volant déduit du ramassage (pas vu directement) pour le(s) point(s) "
-                      + ", ".join(map(str, guessed)))
-    save_json({"points": rows, "summary": agg, "limits": limits}, out_json)
+        limits.append(T("limit_guessed", list=", ".join(map(str, guessed))))
+    save_json({"lang": T.lang, "points": rows, "summary": agg, "limits": limits}, out_json)
 
-    # ---- markdown, in French for the player
-    L = ["# Analyse du match", "",
-         f"**{agg['points']['won']} points gagnés, {agg['points']['lost']} perdus** sur {len(done)} échanges terminés "
-         f"(score {rows[0]['before']} → {done[-1]['after']}).", "",
-         "| # | Service | Score | Durée | Gagné par | Volant tombé | Fin du point |", "|---|---|---|---|---|---|---|"]
-    who = {"R": "toi", "O": "adversaire", None: "?"}
+    # ---- markdown, for the player
+    L = [T("md_title"), "",
+         T("md_points", won=agg["points"]["won"], lost=agg["points"]["lost"], n=len(done), a=rows[0]["before"],
+           b=done[-1]["after"]), "",
+         T("md_head"), "|---|---|---|---|---|---|---|"]
+    who = T("md_who")
     for r in rows:
         dur = f"{r['rdur']:.1f} s" if r.get("rdur") else "—"
         L.append(f"| {r['n']} | {r['t']:.1f} s, {who[r['server']]} | {r['before']} → {r['after'] or '?'} | {dur} | "
@@ -143,17 +151,16 @@ def main():
     s, mv = agg, agg["movement_you"]
     bl = s["by_length"]
     na = lambda x: "n/a" if x is None else x
-    L += ["", "## Ce qui ressort", "",
-          f"- Sur ton service : {s['on_your_serve']['won']} gagné(s), {s['on_your_serve']['lost']} perdu(s). "
-          f"Sur le sien : {s['on_his_serve']['won']} gagné(s), {s['on_his_serve']['lost']} perdu(s).",
-          f"- Échanges de 5 s ou moins : {bl['<=5s']['won']}-{bl['<=5s']['lost']}. "
-          f"De 5 à 10 s : {bl['5-10s']['won']}-{bl['5-10s']['lost']}. Plus de 10 s : {bl['>10s']['won']}-{bl['>10s']['lost']}.",
-          f"- Vitesse moyenne en jeu : {na(val(mv, 'all', 'avg_speed'))} m/s ; 1 s après une sortie de position, "
-          f"tu es encore à {na(val(mv, 'you_won', 'median_dist_1s_after_trip'))} m de ta base sur les points gagnés, "
-          f"{na(val(mv, 'you_lost', 'median_dist_1s_after_trip'))} m sur les points perdus.",
-          f"- Raquette haute au fond du court : {pct(val(s['pose_you'], 'REAR', 'won', 'racket_up'))} du temps sur les points gagnés, "
-          f"{pct(val(s['pose_you'], 'REAR', 'lost', 'racket_up'))} sur les points perdus.",
-          "", "## Limites", ""] + [f"- {x}" for x in limits]
+    wl = lambda d: f"{d['won']}-{d['lost']}"
+    L += ["", T("md_findings"), "",
+          T("md_serve", w1=s["on_your_serve"]["won"], l1=s["on_your_serve"]["lost"], w2=s["on_his_serve"]["won"],
+            l2=s["on_his_serve"]["lost"]),
+          T("md_length", a=wl(bl["<=5s"]), b=wl(bl["5-10s"]), c=wl(bl[">10s"])),
+          T("md_speed", v=na(val(mv, "all", "avg_speed")), w=na(val(mv, "you_won", "median_dist_1s_after_trip")),
+            l=na(val(mv, "you_lost", "median_dist_1s_after_trip"))),
+          T("md_racket", w=pct(val(s["pose_you"], "REAR", "won", "racket_up")),
+            l=pct(val(s["pose_you"], "REAR", "lost", "racket_up"))),
+          "", T("md_limits"), ""] + [f"- {x}" for x in limits]
     out_md.write_text("\n".join(L) + "\n", encoding="utf-8")
 
     print(f"-> {out_json}, {out_md}")
