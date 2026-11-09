@@ -1,0 +1,148 @@
+{
+ "about": "Example coaching.json (a real 11-rally singles clip). Written by an AI assistant from report.md (stage 10), then checked. voice = what the coach says (Kokoro TTS, French); title/stat/fix = on-screen text; after_point = the lesson card is inserted after that rally; freeze = frames shown (t in s, optional zoom on 'o' (opponent) or 'r' (you), optional mark_px circle in proxy pixels). pdf = texts of the written report (first person); format at the top of s10_pdf.py. evidence = where each claim comes from (not displayed).",
+ "intro": {
+  "title": "Analyse IA de mon match",
+  "subtitle": "11 échanges · positions 10 fois par seconde · posture · score",
+  "voice": "Voici tes onze échanges, analysés par l'IA. Et ce qui t'a coûté des points."
+ },
+ "lessons": [
+  {
+   "id": "serve",
+   "after_point": 2,
+   "title": "1. Ton service",
+   "stat": "Quand tu sers : 1 point gagné sur 4 (4 services seulement)",
+   "fix": "Varie : service court et bas, ou long jusqu'au fond",
+   "voice": "Un : quand tu sers, tu ne gagnes qu'un point sur quatre. Ici, ton service monte, et il le smashe. Varie : court et bas, ou long jusqu'au fond.",
+   "freeze": [
+    {
+     "t": 29.0,
+     "caption": "Point 2 : il attaque ton service en smash",
+     "zoom": "o",
+     "zoom_caption": "Gros plan sur l'adversaire"
+    }
+   ],
+   "evidence": [
+    "report.json: you serve points 2, 5, 6, 9 (12 unfinished); won only 5",
+    "point 2: forehand serve with a high follow-through at 27.6-27.9 s (0.1 s close-up), opponent's racket arm overhead 28.6-29.1 s; you confirmed 'il smash directement'"
+   ]
+  },
+  {
+   "id": "racket_back",
+   "after_point": 4,
+   "title": "2. Raquette armée au fond",
+   "stat": "Au fond du court, raquette armée : ~50 % du temps quand tu gagnes le point, ~25 % quand tu le perds",
+   "fix": "Quand tu recules : arme la raquette tôt",
+   "voice": "Deux : au fond du court, quand tu gagnes le point, ta raquette est armée une fois sur deux. Quand tu le perds, une fois sur quatre. Arme-la tôt, comme ici.",
+   "freeze": [
+    {
+     "t": 51.0,
+     "caption": "Point 4, gagné : raquette armée avant la frappe"
+    }
+   ],
+   "evidence": [
+    "pose_stats.json stats.REAR racket_up: won 0.53 (30 frames = 3 s, mostly points 4 and 11), lost 0.23 (40 frames = 4 s)",
+    "hand-up measure checked on 24 blind-rated crops: 21/24 agree",
+    "51.0 s (point 4, won): racket cocked above the head before contact (seen, confirmed by the image reviewer)"
+   ]
+  },
+  {
+   "id": "right_side",
+   "after_point": 7,
+   "title": "3. Ton côté droit",
+   "stat": "3 de tes 6 points perdus finissent sur ta droite, dont 2 en fente en extension",
+   "fix": "Vers la droite : pars plus tôt, finis équilibré",
+   "voice": "Trois : la moitié de tes points perdus finissent sur ta droite, deux fois en fente en extension. Démarre plus tôt pour frapper équilibré.",
+   "freeze": [
+    {
+     "t": 31.0,
+     "caption": "Point 2 : fente en extension vers ta droite"
+    },
+    {
+     "t": 97.5,
+     "caption": "Point 7 : le volant tombe derrière toi, à droite",
+     "mark_px": [
+      737,
+      431
+     ],
+     "mark_label": "volant"
+    }
+   ],
+   "evidence": [
+    "blind check (2 readers agree): point 2 at 31.0 s and point 3 at 41.5 s end in a stretched lunge to image-right = your right (camera behind you); point 8 (won) control: no lunge",
+    "point 7: shuttle on the floor at 97.5 s measured at x=4.71 m, 2.03 m from your baseline (calibrated), you at x=3.27, 2.96 m: behind you to the right",
+    "lost points: 2, 3, 6, 7, 9, 10"
+   ]
+  }
+ ],
+ "outro": {
+  "title": "À travailler",
+  "items": [
+   "Varier ton service",
+   "Armer la raquette tôt au fond",
+   "Partir plus tôt vers ta droite"
+  ],
+  "note": "11 échanges seulement : des tendances, pas des certitudes",
+  "voice": "Cinq à six. À travailler : ton service, la raquette armée au fond, et ta droite."
+ },
+ "pdf": {
+  "summary": [
+   "<b>Mon service</b> : je ne gagne qu'un point sur quatre quand je sers.",
+   "<b>La raquette au fond du court</b> : elle est armée environ deux fois plus souvent sur les points que je gagne.",
+   "<b>Mon côté droit</b> : la moitié de mes points perdus finissent sur ma droite, souvent en fente en extension."
+  ],
+  "lessons": [
+   {
+    "title": "1. Mon service",
+    "constat": "Sur mes 4 services terminés, je gagne 1 point et j'en perds 3 (points 2, 6 et 9). Quand l'adversaire sert, je gagne 4 points sur 7. Au point 2 (0:27), mon service en coup droit monte, et il l'attaque tout de suite en smash.",
+    "travail": "Varier le service : court et bas, au ras du filet, ou long jusqu'au fond du court, pour ne pas lui offrir un volant à smasher.",
+    "images": [
+     {
+      "t": 29.0,
+      "zoom": "o"
+     }
+    ],
+    "caption": "Point 2, 0:29 : l'adversaire attaque mon service en smash (à droite, gros plan sur lui)."
+   },
+   {
+    "title": "2. Armer la raquette au fond du court",
+    "constat": "Quand je suis au fond du court, ma raquette est armée (main au-dessus des épaules) 53 % du temps sur les points que je gagne, contre 23 % sur les points que je perds. C'est mesuré sur quelques secondes de jeu seulement (environ 3 s et 4 s), mais l'écart est net.",
+    "travail": "Quand je recule, armer la raquette tôt, avant que le volant arrive, comme au point 4.",
+    "images": [
+     {
+      "t": 51.0
+     }
+    ],
+    "caption": "Point 4 (gagné), 0:51 : raquette armée bien avant la frappe."
+   },
+   {
+    "title": "3. Mon côté droit",
+    "constat": "Trois de mes six points perdus finissent sur ma droite. Aux points 2 et 3 (0:31 et 0:41), je termine en fente en extension vers la droite ; au point 7 (1:37), le volant tombe derrière moi, à droite.",
+    "travail": "Dès que le volant part vers ma droite, démarrer plus tôt pour frapper équilibré, plutôt qu'en extension.",
+    "images": [
+     {
+      "t": 31.0
+     },
+     {
+      "t": 97.5,
+      "mark_px": [
+       737,
+       431
+      ],
+      "mark_label": "volant"
+     }
+    ],
+    "caption": "À gauche, point 2 (0:31) : fente en extension vers la droite. À droite, point 7 (1:37) : le volant (cercle jaune) tombe derrière moi."
+   }
+  ],
+  "endings": {
+   "1": "sa faute de service",
+   "2": "son smash direct sur mon service",
+   "3": "volant tombé près du filet, de mon côté, après ma fente à droite"
+  },
+  "uncertain": [
+   6
+  ],
+  "camera": "téléphone posé au sol derrière ma ligne de fond",
+  "limits": "Caméra au sol : la profondeur de l'adversaire est imprécise, donc ses zones ne sont pas analysées ; le côté où tombe le volant près du filet est parfois incertain (point 6). La mesure « raquette armée » est juste dans 21 cas sur 24 vérifiés à l'œil. Avec 11 échanges, il faut confirmer ces tendances sur un match complet, idéalement filmé de plus haut."
+ }
+}

@@ -1,0 +1,11 @@
+# Tested with Python 3.12 on Windows 11 (CPU only). ffmpeg + ffprobe must also be on the PATH.
+numpy==2.5.4
+opencv-contrib-python==5.0.0.93
+onnxruntime==1.31.0
+mediapipe==1.1.1
+matplotlib==3.11.2
+pillow==13.0.0
+reportlab==5.1.0
+# stage 11 (video reel with voice-over) only
+kokoro-onnx==0.6.1
+soundfile==0.14.0

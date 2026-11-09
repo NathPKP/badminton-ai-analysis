@@ -1,0 +1,33 @@
+{
+ "about": "Example review.json: read by eye on contact/timeline (0.5 s tiles); the server is confirmed on contact/serve_closeups (0.1 s). serves: t = racket contact (s), server R = you (near player), O = opponent. rally_ends: t = last moment of live play (last hit, lunge or shuttle landing), shuttle = side where it came down (R / O / null if not visible). One rally end between two serves; the last rally may have none if the video stops during it. 'note' is free text, not read by the scripts.",
+ "serves": [
+  {
+   "t": 21.0,
+   "server": "O",
+   "note": "opponent serves; contact time read on the 0.1 s close-up"
+  },
+  {
+   "t": 27.9,
+   "server": "R"
+  },
+  {
+   "t": 37.4,
+   "server": "O"
+  }
+ ],
+ "rally_ends": [
+  {
+   "t": 22.0,
+   "shuttle": "R",
+   "note": "serve fault: lands on your side, the point is yours"
+  },
+  {
+   "t": 31.0,
+   "shuttle": "R"
+  },
+  {
+   "t": 42.25,
+   "shuttle": null
+  }
+ ]
+}

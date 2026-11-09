@@ -1,0 +1,21 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Model files (download with: python download_models.py)
+models/
+
+# Analyses: match videos, results, reports. Personal data, never commit.
+analyses/
+work/
+*.mp4
+*.mov
+*.MP4
+*.MOV
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
