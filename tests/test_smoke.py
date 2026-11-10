@@ -149,6 +149,17 @@ class Shuttle(unittest.TestCase):
         self.assertEqual(segs[2:], [(90, 119, 60, 149), (120, 149, 90, 149)])  # moving: per second, same shot only
 
 
+class CoachTexts(unittest.TestCase):
+    def test_side_rule_texts(self):
+        import s10_coach
+        for lang, S in s10_coach.L.items():
+            # the side words must not share a key with the side lesson texts (that clash crashed the rule)
+            self.assertEqual(set(S["side_word"]), {"right", "left"}, lang)
+            for key in ("title", "stat", "voice", "caption"):
+                S["side"][key].format(i=1, N="1", side=S["side_word"]["right"], k=3, nl=5, kw=1, nw=6, list="2",
+                                      k2=2, mmss="2:41")
+
+
 class Settings(unittest.TestCase):
     def test_parse_and_num(self):
         import run as runpy

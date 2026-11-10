@@ -87,6 +87,7 @@ On les change avec `run.py set <analyse> clé=valeur`. Les étapes concernées s
 | `thr=0.82` | seuil de flexion de l'étape 9 (dépend de l'angle de la caméra) |
 | `last_winner=R` | gagnant du dernier point, si la vidéo le montre (`R` = toi, `O` = adversaire) |
 | `accept_score=[7]` | services qui contredisent la règle du côté mais sont justes (faute, let…) |
+| `start_score=[0,1]` | score [toi, adversaire] au premier service, si la vidéo commence en cours de set |
 | `camera=raised` | caméra surélevée : retire du rapport la limite « caméra au sol » (défaut : `floor` ; `sol` et `haute` marchent aussi) |
 | `footage=tv` | vidéo de retransmission : gros plans et ralentis ignorés, joueur proche = celui qui est dans la moitié proche (défaut : `own`) |
 | `speed=1.3` | vitesse de lecture des échanges dans la vidéo |

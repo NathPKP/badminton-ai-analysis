@@ -99,7 +99,7 @@ def main():
                         ("lost_median", [r["rdur"] for r in done if r["winner"] == "O"]))},
            "endings": {}}
     for r in done:
-        e = r.get("ending", "inconnu")
+        e = r.get("ending") or ("unknown" if T.lang == "en" else "inconnu")
         agg["endings"].setdefault(e, []).append(r["n"])
     end_depth = {k: [r["you_at_end"]["depth"] for r in done if r["winner"] == k and "you_at_end" in r] for k in "RO"}
     agg["you_depth_at_end"] = {"won": end_depth["R"], "lost": end_depth["O"]}

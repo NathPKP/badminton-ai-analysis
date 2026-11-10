@@ -153,7 +153,7 @@ def main():
         rows.append({"k": k, "t": r["t"], "n": int(rally_of[k]), "won": None if winner[rally_of[k]] is None else winner[rally_of[k]] == "R", "ctx": ctx,
                      "crouch": None if "hip_ankle" not in r or r["trunc"] else round(1 - r["hip_ankle"] / upright, 3),
                      "stance": None if "ankles" not in r or r["trunc"] else round(r["ankles"] / shoulders, 2),
-                     "racket_up": None if r["wrist_up"] is None else bool(r["wrist_up"] > 0)})
+                     "racket_up": None if r.get("wrist_up") is None else bool(r["wrist_up"] > 0)})
 
     def summarise(sel):
         c = [x["crouch"] for x in sel if x["crouch"] is not None]

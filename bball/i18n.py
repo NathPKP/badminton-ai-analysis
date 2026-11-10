@@ -81,8 +81,10 @@ TEXT = {
                   "frame, score rebuilt with the rule “the winner serves” and checked with the service-court rule "
                   "({check}). Everything runs on a PC, with free tools.",
         "check_ok": "{n} serves out of {n} consistent",
-        "check_accepted": ("{ok} serves out of {n} consistent; serve {list} is a checked exception: fault or let",
-                           "{ok} serves out of {n} consistent; serves {list} are checked exceptions: fault or let"),
+        "check_accepted": ("{ok} serves out of {n} consistent; serve {list} breaks the rule and was kept as read "
+                           "(a fault, a let, or a reading error)",
+                           "{ok} serves out of {n} consistent; serves {list} break the rule and were kept as read "
+                           "(faults, lets, or reading errors)"),
         "check_bad": ("{ok} serves out of {n} consistent; serve {list} must be checked again",
                       "{ok} serves out of {n} consistent; serves {list} must be checked again"),
         "limits": "Limits.",
@@ -200,8 +202,10 @@ TEXT = {
                   "d'échange relus image par image, score reconstitué avec la règle « le gagnant sert » et contrôlé "
                   "par la règle du côté de service ({check}). Tout tourne sur un PC, avec des outils gratuits.",
         "check_ok": "{n} services sur {n} cohérents",
-        "check_accepted": ("{ok} services sur {n} cohérents ; le service {list} est une exception vérifiée : faute ou let",
-                           "{ok} services sur {n} cohérents ; les services {list} sont des exceptions vérifiées : faute ou let"),
+        "check_accepted": ("{ok} services sur {n} cohérents ; le service {list} contredit la règle et a été gardé tel "
+                           "quel (faute, let, ou erreur de lecture)",
+                           "{ok} services sur {n} cohérents ; les services {list} contredisent la règle et ont été "
+                           "gardés tels quels (fautes, lets, ou erreurs de lecture)"),
         "check_bad": ("{ok} services sur {n} cohérents ; le service {list} est à revérifier",
                       "{ok} services sur {n} cohérents ; les services {list} sont à revérifier"),
         "limits": "Limites.",

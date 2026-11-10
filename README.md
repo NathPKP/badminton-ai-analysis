@@ -121,6 +121,7 @@ Other commands:
 | `thr` | stage 9 bend threshold (0.82) |
 | `last_winner` | `R` (you) or `O`, if the video shows who won the last point |
 | `accept_score` | serves that break the side rule but are right (fault, let), e.g. `[7]` |
+| `start_score` | score `[you, opponent]` at the first serve, when the video starts during a game, e.g. `[0,1]` |
 | `speed` | rally playback speed in the reel (1.3) |
 | `shuttle` | `on` (default, when the tracker is installed) or `off` |
 | `report_date` | date printed on the PDF |

@@ -122,12 +122,15 @@ MSG = {
                    "footage": "own (your video, you in the near half) or tv (broadcast: cuts, players change ends)",
                    "shuttle": "on (default, when the tracker is installed: download_models.py --shuttle) or off",
                    "calib_from": "analysis whose calibration points are reused",
-                   "accept_score": "serves that break the side rule but are right (fault, let...), e.g. [7]"},
+                   "accept_score": "serves that break the side rule but are right (fault, let...), e.g. [7]",
+                   "start_score": "score [you, opponent] at the first serve, when the video starts during a game, "
+                                  "e.g. [0,1]"},
         "bad_value": {"shorts_hue": "shorts_hue: two numbers, e.g. shorts_hue=[170,10]",
                       "accept_score": "accept_score: the list of accepted serve numbers, e.g. accept_score=[7]",
                       "number": "{k}: a number, e.g. {k}=12", "last_winner": "last_winner: R (you) or O (opponent)",
                       "camera": "camera: floor or raised", "lang": "lang: en or fr", "coach": "coach: auto or ai",
-                      "footage": "footage: own or tv", "shuttle": "shuttle: on or off"},
+                      "footage": "footage: own or tv", "shuttle": "shuttle: on or off",
+                      "start_score": "start_score: two numbers [you, opponent], e.g. start_score=[0,1]"},
     },
     "fr": {
         "stages": {"proxy": "0. copie de travail 30 i/s", "detect": "1. détection des joueurs", "calib": "2. calibrage du terrain",
@@ -205,12 +208,15 @@ MSG = {
                    "footage": "own (ta vidéo, toi dans la moitié proche) ou tv (retransmission : coupures, changements de côté)",
                    "shuttle": "on (par défaut, si le suivi est installé : download_models.py --shuttle) ou off",
                    "calib_from": "analyse dont on reprend les points de calibrage",
-                   "accept_score": "services qui contredisent la règle du côté mais sont justes (faute, let...), ex. [7]"},
+                   "accept_score": "services qui contredisent la règle du côté mais sont justes (faute, let...), ex. [7]",
+                   "start_score": "score [toi, adversaire] au premier service, quand la vidéo commence en cours de "
+                                  "set, ex. [0,1]"},
         "bad_value": {"shorts_hue": "shorts_hue : deux nombres, ex. shorts_hue=[170,10]",
                       "accept_score": "accept_score : la liste des numéros de service acceptés, ex. accept_score=[7]",
                       "number": "{k} : un nombre, ex. {k}=12", "last_winner": "last_winner : R (toi) ou O (adversaire)",
                       "camera": "camera : floor ou raised", "lang": "lang : en ou fr", "coach": "coach : auto ou ai",
-                      "footage": "footage : own ou tv", "shuttle": "shuttle : on ou off"},
+                      "footage": "footage : own ou tv", "shuttle": "shuttle : on ou off",
+                      "start_score": "start_score : deux nombres [toi, adversaire], ex. start_score=[0,1]"},
     },
 }
 
@@ -343,6 +349,7 @@ def stages(a):
     shuttle = shuttle_on(a)
     thr = ["--thr", p["thr"]] if "thr" in p else []
     last = ["--last-winner", p["last_winner"]] if p.get("last_winner") else []
+    last += ["--start-score", *p["start_score"]] if p.get("start_score") else []
     speed = ["--speed", p["speed"]] if "speed" in p else []
     lang = ["--lang", a.lang]
     # printed date: the setting, else the day the analysis was created (fixed, so the PDF is not rebuilt every day)
@@ -518,15 +525,30 @@ def review_todo(a):
     if todo.exists() and sha(todo) != a.state.get("todo_sha"):
         return todo                      # being filled in: never overwrite it
     auto = load(a.dir / "serves_auto.json")["serves"]
+    serves = [{"t": s["t"], "server": s["server_guess"],
+               "note": "auto, to check" + (" (time from the shuttle's flight)" if s.get("timed_by") == "shuttle"
+                                           else "")} for s in auto]
+    ends = []
+    shuttle = load(a.dir / "shuttle.json")
+    if shuttle:
+        # with the shuttle tracker: one rally per group of flights (bball.shuttle.rally_groups), which finds the
+        # serves the players' stillness misses; the server stays the stillness guess when one is near
+        from bball.shuttle import rally_groups
+        groups = rally_groups(shuttle["flights"])
+        serves = []
+        for g0, g1 in groups:
+            near = [s for s in auto if abs(s["t"] - g0) <= 2.5]
+            guess = min(near, key=lambda s: abs(s["t"] - g0))["server_guess"] if near else None
+            serves.append({"t": g0, "server": guess,
+                           "note": "auto from the shuttle's flights, to check" + ("" if guess else ": server unknown")})
+            ends.append({"t": g1, "shuttle": None, "note": "auto: end of the shuttle's last flight, to check"})
     dump({"about": "DRAFT: correct it, then rename it review.json (format: examples/review.example.json). serves: "
                    "contact time + server (R = you, O = opponent), detected automatically (time within about 2 s, "
-                   "or 0.7 s when taken from the shuttle's flight; server guessed). rally_ends: last moment of live play of each rally + side where the shuttle came "
-                   "down (R / O / null). Read on contact/timeline; confirm the server on contact/serve_closeups "
-                   "(made at stage 4).",
-          "serves": [{"t": s["t"], "server": s["server_guess"],
-                      "note": "auto, to check" + (" (time from the shuttle's flight)" if s.get("timed_by") == "shuttle"
-                                                  else "")} for s in auto],
-          "rally_ends": []}, todo)
+                   "or 0.7 s when taken from the shuttle's flight; server guessed). rally_ends: last moment of live "
+                   "play of each rally + side where the shuttle came down (R / O / null); pre-filled from the "
+                   "shuttle's flights when the tracker is installed (a long lob can split a rally in two). Read on "
+                   "contact/timeline; confirm the server on contact/serve_closeups (made at stage 4).",
+          "serves": serves, "rally_ends": ends}, todo)
     a.state["todo_sha"] = sha(todo)
     return todo
 
@@ -647,6 +669,9 @@ def parse_value(k, v, lang):
         return [int(n) for n in parts]
     if k == "accept_score" and not (isinstance(x, list) and all(isinstance(n, int) for n in x)):
         raise SystemExit(bad["accept_score"])
+    if k == "start_score" and not (isinstance(x, list) and len(x) == 2
+                                   and all(isinstance(n, int) and n >= 0 for n in x)):
+        raise SystemExit(bad["start_score"])
     if k in ("start", "min_blue", "thr", "speed") and not isinstance(x, (int, float)):
         raise SystemExit(bad["number"].format(k=k))
     if k == "last_winner" and x not in ("R", "O"):

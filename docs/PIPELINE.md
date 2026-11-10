@@ -162,6 +162,17 @@ Seven videos were measured on windows of 60 to 150 s. "Precision" is the share o
   - **Rally ends.** The shuttle hit back to the server right after a point looks like play, which would push some rally ends 0.5–2 s late.
   - On TV footage both should work far better. That is the next thing to measure, once the pro analyses have a `review.json` to compare against.
 
+## Full runs on other videos (November 2026)
+
+Five other videos were taken to the PDF and the reel: two BWF finals (read by eye with the help of the TV scoreboard), and three junior videos. U15 is a highlights edit; U19 and U17 are continuous, fixed camera. A handheld amateur video was not run, because the calibration has one homography per time range and cannot follow a camera that moves.
+
+- **Rallies from the shuttle.** On the men's final, the groups of flights gave all 11 rallies, plus one split in two by a long lob (the 1.3 s let on the women's final is dropped by the 1.5 s minimum). Rally ends fell within 0.5 s of the eye reading 9 times out of 10. `review.todo.json` is now pre-filled with them.
+- **Who serves is still not automatic.** With the stage 4 guess, 15 of 29 (U19) and 20 of 36 (U17) serves agree with the service-court rule, which is chance level. The reports made from these unchecked readings have a wrong score.
+- **Never accept contradictions in bulk.** On U15 the score built by the rule "the winner serves" came out 10-3, while the score drawn on the video was 14-11: in a highlights edit, the next rally shown is not the next one played. `accept_score` is for one known fault or let, not for making a run finish. For a clip that starts during a game, `start_score` gives the score at the first serve.
+- **Broadcast transitions.** Serve 9 of the women's final broke the side rule: the second before it was the BWF logo transition, on which the server's position was measured.
+- **Speeds above 6 m/s** (8 to 10 m/s on the juniors) mean the player tracking jumped onto someone else, such as a player on the next court. Nothing filters these jumps yet.
+- **Rule-based lessons on small samples.** The serve rule fires on 5 vs 6 points (women's final) and turns "7 of 10 won on my serve" into "vary the serve" (U15). Its sample threshold is too low.
+
 ## `run.py`: orchestration
 
 - **One folder per analysis**: `analyses/<video date>_<name>/` with `analysis.json` (source video and settings) and `.pipeline.json` (state).

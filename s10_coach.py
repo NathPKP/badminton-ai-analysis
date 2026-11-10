@@ -30,7 +30,7 @@ L = {
         "outro": {"title": "To work on", "note_few": "Only {n} rallies: trends, not certainties",
                   "voice": "{a} to {b}. To work on: {items}."},
         "and": " and ",
-        "side": {"right": "right", "left": "left"},
+        "side_word": {"right": "right", "left": "left"},
         "pct_voice": "{p} percent",
         "serve": {"title": "{i}. Your serve", "pdf_title": "{i}. My serve", "item": "Vary your serve",
                   "summary": "<b>My serve</b>: I win {w} of {n} points when I serve.",
@@ -98,7 +98,7 @@ L = {
         "outro": {"title": "À travailler", "note_few": "{n} échanges seulement : des tendances, pas des certitudes",
                   "voice": "{a} à {b}. À travailler : {items}."},
         "and": " et ",
-        "side": {"right": "droite", "left": "gauche"},
+        "side_word": {"right": "droite", "left": "gauche"},
         "pct_voice": "{p} pour cent",
         "serve": {"title": "{i}. Ton service", "pdf_title": "{i}. Mon service", "item": "Varier ton service",
                   "summary": "<b>Mon service</b> : je gagne {wp} sur {n} quand je sers.",
@@ -122,8 +122,8 @@ L = {
                               "images mesurées).",
                    "travail": "Quand je recule, armer la raquette tôt, avant que le volant arrive.",
                    "caption": "Point {k} : raquette armée tôt", "pdf_caption": "Point {k}, {mmss} : raquette armée avant la frappe."},
-        "side": {"title": "{i}. Ton côté {side}", "pdf_title": "{i}. Mon côté {side}", "item": "Partir plus tôt vers ta {side}",
-                 "summary": "<b>Mon côté {side}</b> : {k} de mes {nl} points perdus finissent sur ma {side}.",
+        "side": {"title": "{i}. Ta {side}", "pdf_title": "{i}. Ma {side}", "item": "Partir plus tôt vers ta {side}",
+                 "summary": "<b>Ma {side}</b> : {k} de mes {nl} points perdus finissent sur ma {side}.",
                  "stat": "{k} de tes {nl} points perdus finissent sur ta {side}",
                  "fix": "Vers la {side} : pars plus tôt, finis équilibré",
                  "voice": "{N} : {k} de tes {nl} points perdus finissent sur ta {side}. Démarre plus tôt pour frapper équilibré.",
@@ -270,7 +270,7 @@ def main():
         if rid == "long":
             v.update(d=T.num(v["d"]))
         if rid == "side":
-            v["side"] = S["side"][v.pop("sd")]
+            v["side"] = S["side_word"][v.pop("sd")]
         if "w" in v and isinstance(v["w"], int):
             v.update(wp=T.plural(v["w"], "point"), wpg=T.plural(v["w"], "point_won"))
         v.update(i=i, N=T.count(i), k=v.get("k", k), mmss=mmss(t))

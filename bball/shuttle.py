@@ -45,6 +45,20 @@ def flights(p, fps, t0, w, h, min_frames=5, min_move=0.03, max_gap=4, max_jump=0
     return out
 
 
+def rally_groups(fl, gap=2.5, min_len=1.5):
+    """Rallies as runs of flights less than `gap` s apart, kept when they last `min_len` s or more:
+    [(start, end), ...]. On a BWF final (11 rallies): 11 found plus 1 rally split in two by a long lob, and ends
+    within 0.5 s of the eye reading 9 times out of 10. Between rallies the shuttle is hit back to the server in
+    one flight, usually a separate short group; a rally end read from it is late."""
+    out = []
+    for f in fl:
+        if out and f["t0"] - out[-1][1] <= gap:
+            out[-1][1] = f["t1"]
+        else:
+            out.append([f["t0"], f["t1"]])
+    return [(a, b) for a, b in out if b - a >= min_len]
+
+
 def serve_flight(fl, t, window=2.5, quiet=1.5):
     """Start time of the flight that most likely is the serve near time t, or None.
 
